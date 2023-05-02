@@ -697,7 +697,7 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    experiments_to_run = [config.exp_taxi_small_0_1]
+    experiments_to_run = [config.exp_taxi_small_eduardo_1]
 
     # RL for CD vs RL
     #experiments_to_run = [config.exp_taxi_small_eduardo_1, config.exp_taxi_small_eduardo_2, config.exp_taxi_small_eduardo_3, config.exp_taxi_small_eduardo_4]
@@ -731,7 +731,7 @@ if __name__ == '__main__':
         env = gym.make(environment_name, env_type=environment_type, render_fps=64)
 
         # Params for the experiment output related folder and names
-        results_folder = "extra tests"
+        results_folder = "experiments_results"
         # Sub folders
         rl_result_folder = "rl_results"
         causal_discovery_data_folder = "cd_data_and_results"

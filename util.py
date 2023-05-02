@@ -8,7 +8,7 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 
 # Change this to "pdf" for the final version
-export_format = [".pdf", ".svg", ".png"][0]
+export_format = [".pdf", ".svg", ".png"][2]
 font_size = 16
 legend_item_size = 13
 

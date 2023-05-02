@@ -13,3 +13,6 @@ ale-py~=0.7.5
 
 # Installing Tkinter for Dynamic plotting using gym.PlayPlot
 # apt-get install python-tk
+
+#conda install -c conda-forge r-base
+#conda install -c conda-forge r-bnlearn

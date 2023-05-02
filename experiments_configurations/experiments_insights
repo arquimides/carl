@@ -1,0 +1,6 @@
+- The causal discovery process is affected in large extend when we use the SAME episode initialization
+strategy. However, the CRL agent still perform better in terms that police learn. That should be because
+we are using only the reward part of the causal relations for now. TO Test this just run the same experiment
+changing the EpisodeStateInitialization from RANDOM to SAME
+
+- It is better to do RLforCD than not do it, even using the very simple strategy.

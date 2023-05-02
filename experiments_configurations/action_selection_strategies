@@ -1,0 +1,29 @@
+Estrategias de RL for CD
+
+-Otra idea pudiera ser no solo considerar las acciones menos hechas sino tambien la probabilidad de
+transitar a un estado relacional no visitado
+
+
+
+Estrategias para utilizar el modelos en los episodios que son RL+CD
+
+1. Cuando estamos utilizando el modelo, seleccionamos la accion o filtramos las malas
+    Si hay una buena la hacemos directamente y si hay opciones elegimos una aleatoria y la hacemos.
+    Al hacer esto estamos omitiendo por completo a la estrategia de exploracion (e-greedy) ya que siempre tenemos
+    acciones sugeridas por el modelo.
+
+2. Cuando estamos utilizando el modelo, seleccionamos la accion o filtramos las malas.
+    Utilizamos el mismo esquema de exploracion-explotacion con algunos detalles:
+        Si nos toca explotar seleccionamos en la matrix q pero filtrando las acciones malas.
+        Si nos toca explorar igual seleccionamos pero filtrando las acciones malas
+
+   Estas formas de utilizar el modelo basicamente estarian priorizando acciones con recompenza inmediata positiva. Sin embargo no están teniendo
+   en cuenta la recompenza a largo plazo. One possibility for improvement may be to use a continuous variable for the reward, and later select the action with highest expected reward
+   (or maybe better: Thomson-sample the rewards from the models). Another idea would be to not use reward here, but something like the Q-function
+   already defined in Q-learning.
+
+3. Utilizar el modelo para simular todas las acciones en un estado determinado sin necesidad de ejecutarlas.
+
+Luego crear unas configuraciones nuevas y probar con las ideas nuevas de utilizar el modelo tanto para la exploracion como para
+la explotacion y tambien probar lo de hacer exploracion para el modelo cuando toque RL for CD independientemente
+de epsilon.

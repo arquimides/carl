@@ -1,0 +1,17 @@
+Diferentes esquemas de combinacion de las etapas
+1 - El baseline RL, CD, RL+CD, RL, CD, RL+CD
+
+2 - También esta el que hace CD siempre: RL, CD, RL+CD, CD, RL, CD, RL+CD
+
+3 - Dado el nuevo esquema de integracion (seleccion de acciones). Probar si siempre hace RL utilizando el modelo a ver que pasa.
+O sea, no dejar de utilizar el modelo a partir de la primera vez que lo obtiene y seguir actualizandolo cada T episodios (Exp 3)
+RL, CD, RL+CD, CD, RL+CD, ...
+Este esquema tambien fue sugerido por uno de los revisores del artículo.
+
+4 - La de Sergio: Primero RL solo T episodios. Luego RL + CM 5T. Luego RL solo hasta el final.
+
+5- Otra idea seria hacer un ciclo de RL para CD en el que en un estado se seleccione acciones de las que no tengamos observaciones.
+Como hacer Full exploration. Esto justificaría un ciclo RLparaCD, CD, RLusingCD, CD, RLparaCD, CD, RLusingCD
+
+En los ciclos de RLparaCD cuando ya tenemos modelos pudieramos utilizar planeacion para sugerir secuencia de acciones que nos lleven a estados
+de los que no tenemos observaciones.

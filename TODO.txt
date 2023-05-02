@@ -1,0 +1,167 @@
+TODO LIST:
+
+Probar bien los agentes corriendo la politica optima al terminar el transfer.
+A lo mejor hay que darle unos episodios mas para pruebla.
+
+El learning rate esta pueso en 1.0 porque es optimo para deterministic environment. (Ver y si acaso modificar)
+Debuguear un experimento para ver porque baja tanto el rendimiento cuando hace RL for CD
+Implementar el taxi estochastico y correr los experimentos
+
+Sacar la parte del calculo del numero de estado relacional correspondiente para el ambiente para no tener que recalcularlo siempre en RL
+
+En realidad la estrategia de RLforCD como estaba tiene sentido ya que se compara contra RL en la misma medida
+de exploracion, o sea, elige acciones para el modelo en la misma medida que un agente RL eligiría una accion aleatoria.
+La comparación nueva es un poco injusta ya que nuestro agente siempre esta realizando acciones para el modelo
+mientras que el de RL tiene que explotar tambien.
+
+Por la forma actual de realizar RLforCD el rendimiento tiende a bajar bastante cuando le toca hacer esa etapa ya que
+intenta que en cada estado se equiparen el numero de observaciones para cada accion antes de volver a seleccionar una aleatoria nuevamente.
+
+En los experimentos del transfer, hacer CD, siempre para que aunque empezemos con un modelo medio malo,
+lo podamos mejorar por el camino y asi eventualmente poder utilizarlo mejor.
+
+
+
+Hacer el taxi estochastic. 1 Mover las paredes de manera aleatoria. 2 programar fallos en las acciones del robot
+
+En los experimentos del transfer pude ver que a medida que baja epsilon no hay mucha diferencia
+entre empezar con el modelo y sin el. Esto parece normal. Sin embargo quisieramos que nuestro
+metodo que empieza con el modelo sea mejor de alguna manera al mejor que empieza sin modelo y esto
+no ocurre. A lo mejor podriamos revisar la forma en la que se utiliza el modelo. Ya que
+aunque filtra acciones luego las vuelve a seleccionar aleatoriamente sin mirar a Q. Una idea
+seria que cuando esta explorando (utilizando el modelo) desempate utilizando Q entre las acciones filtradas.
+OJOOOO. Podemos hacer que nuestro agente siempre haga la accion que sugiere al etapa, tanto en la exploracion como en la explotacion.
+Y que no solo la haga en la exploracion. Ya que a medida que baja la exploracion deja de utilizar las ventajas de nuestro metodo si las hay.
+
+
+Una idea puede ser cambiar totalmente la forma de uzo. EN lugar de utilizarlo en exploracion hacerlo en explotacion.
+O sea, que explote basado en los filtros que da el modelo pero que siempre explore un poco para poder descubir cosas nuevas.
+Lo otro es utilzar la estrategia de Eudardo de tener dos epsilon.
+Cuando voy a utilizar el modelo, si no me puede dugerir ninguna accion buena por R, entonces que me suguiera
+la accion que me lleve al mejor estado segun el modelo de transicion.Y así lo utilizo.
+
+
+En el coffee task la funcion original propuesta por los autores no converge.
+No se porqué DynaQ no funciona mejor que Q-Learning en la tarea del cafe, incluso en el ambiente determinista.
+Probablemente sea por el diseño de la funcion de recompenza. Al tener tanta recompenza diferente en casi todos los
+estados no hay mucha diferencia en la tarea del café
+La funcion que teniamos da demasiada recompenza por lo que Dyna-Q no supera a Q-Learning.
+Si embargo, si dejo la funcion de recompenza con 4 valores 1,0.9, -0.1 y -1. Entonces
+la variable reward no tendrá la misma cardinalidad en los modelos de cada accion, ya que solo tendrá
+3 valores en la accion DC y en el resto solo 2 y la mayoría de los casos incluso 1. Eso afecta al algoritmo de
+descubrimiento. De hecho la variable REWARD tambien tiene distinta cardinalidad en el ambiente del taxi.
+Falta poner que la cardinalidad de USerHOldingCOfee at time i es 1 poruq se están descubriendo relaciones falsas con esa arista.
+Eso no puedo hacerlo así que lo mejor puede ser quitar esa variable. En realidad no influye en nada
+
+Modificar los modelos causales:
+1. Quitando las restricciones de que las variables de i+1 no puedan causar a reward
+2. Poniendo a reward a que solo dependa de las variablesd de i+1
+
+Sacar los ambientes a proyectos independientes con el estilo del proyecto maze-2d
+Actualizar el ambiente del cafe en las otras 2 computadoras
+
+Implementar un generador de modelos parcialmente correctos a partir del modelo Groud Truth
+Hacer un experimento donde le pase los diferentes modelos causales de inicio para comprobar que incluso con modelos parciales se comporta mejor que sin los mismos para diferentes niveles de modelos.
+
+3- Guardar los datos de la configuracion del experimento en un txt dentro de la carpeta del propio experimento
+
+1. RL USING CD
+
+Ver las estrategias que utilizan los model-base RL algorithms y compararme contra ellos.Tambien para tomar ideas de dichas estrategias y darle
+forma la nuestra teniendo en cuenta que tambien queremos aprender los modelos.
+
+Tambien deberiamos probar haciendo como lo hacen los Model-based. Utilizando el modelo de transicion para simular algunos episodios extra.
+O bien utilizando la funcion de recompenza estimada para simular todas las acciones en un estado sin necesidad de ejecutarlas y de
+esa forma actualizar toda un fila de la matrix Q sin tener que hacer el paso. Una cosa que podría hacer una vez que tengo los modelos aprendidos, transferir los Q-valores a los estados
+que compartan la misma representacion relacional.
+
+2. RL FOR CD
+
+La primera pudiera ser seleccionar la accion que menos se ha realizado en un estado determinado (LISTO)
+
+La otra pudiera ser utilizar el modelo de transicion para realizar la accion que te lleve al s' menos explorado
+
+
+3. CAUSAL BASED ACTION SELECTION STRATEGY
+
+1- Modificar el algoritmo de seleccion de acciones:
+Por ahora solo se prioriza la recompenza positiva inmediata, no se penaliza la recompenza negativa inmediata
+ni tampoco se valoran las acciones que aportan al descubrimiento. Para esto se pudiera tambien tener en cuenta que si estoy en un estado en el que no
+he realizado una accion específica a lo mejor combiene realizar esa accion para tener ese ejemplo en el dataset por encima de realizar
+otra acción que se que muy probablemente me dé recompenza alta.
+Tambien se podria hacer algun tipo de plan a la hora de seleccionar la accion para darle uzo al modelo de transicion que por ahora se ignora.
+Buscar sobre el plan de n-steps RL.
+
+4. INTEGRATION
+
+Una idea seria no hacer etapas propiamente dichas sino dejar que el agente decida en todo momento que accion ejecutar en
+base a maximizar la entropía entre la accion que es mejor para el descubrimiento y la accion que es mejor para
+la política y una accion aleatoria.
+
+Integrar esa etapa en una nueva estrategia donde tambien evaluemos los modelos de transicion y recompenza aprendidos en los episodios donde los estamos utilizando.
+
+1.1 Hay que calcular un valor de confianza del modelo. Para esto se pueden realizar acciones para validar el modelo aprendido antes de comenzar a utilizarlo.
+
+2- Modificar el algoritmo de combinacion: No necesariamente se tienen que realizar T episodios alternados.
+En caso de que la evaluacion de los modelos sea baja se le pudiera indicar al agente seguir haciendo exploracion antes de comenzar a utilizar los mismo.
+Revisar estrategias de exploracion.
+
+1- EL parametro T debe estar en funcion de la calidad de los datos para el descubrimiento y no del numero de episodios
+porque no lo conocemos a priori
+2- El decay rate en estrategias decrementales de exploracion debe estar en funcion del numero de episodios.
+3- El parametro Threshold hay que revisarlo
+
+3- Anñadir el parametro decayed y ver si algun otro al nombre de la carpeta de salida de los experimentos para que se puedan
+diferenciar mejor
+
+2.1 Lo otro crítico sería determinar cuando es el mejor momento para hacer el descubrimiento inicial.
+A lo mejor hay algunas estadísitica de la diversidad de los datos que nos pueden servir de guía. La otra opcion es dejarlo aleatorio, siempre que luego
+podamos evaluar a los modelos descubiertos.
+
+1- Cuando utilizando los modelos causales se obtiene la convergencia, quizas no sea necesario realizar mas RL, simplemente se
+utiliza el modelo causal en el resto de los episodios.
+
+Una posible estrategia de combinacion sería Rl for CD, CD, RL using CD, model evaluation and th adjustment, -> CD, y repetir
+
+
+5. EXPERIMENTS
+
+PRIORIZAR LA IMPLEMENTACION DE LA NUEVA TAREA, ROBOT MEJORADO O JUEGO
+5- Ver al alumno de Eduardo que está trabajando en similar para compartir ideas y codigo.
+
+6. OPTIMIZATION and OTHERS:
+
+Calcular las probabilidades directas del objeto bn.fit, sin tener que hacer las simulaciones. Ya que las que me interesan son de una variable dados los padres
+
+Habria que ver si cambia el ground truth, o sea, location en j depende de location en i y la posicion de la pared en i. No estoy seguro
+por la forma de location. Por ahora modifiqué el ground truth.
+
+Revisar la funcion de recompenza en general. Visualizar al agente aprendiendo o haciendo la tarea para ver si no cae en ciclos de soltar y montar.
+Darle recompenza negativa grande cuando choque contra alguna pared. De manera general se puede incluir esta informacion en el algoritmo de seleccion de acciones para que tambien evite acciones que conyeven a
+recompenza negativa. Quitar la recompenza positiva al hacer move que lo lleven a las submetas
+
+
+Cosas del código:
+
+- Utilizar seed en los random
+- Graficar las acciones sugeridas por accion para ver cuales son los modelos que mas se estan utilizando
+- De manera general mejorar la visualizacion del proceso. Configurar x11 remoto con grafico
+- Hacer el ambiente del taxi estocastico (por ahora es deterministico)
+- El reset del taxi puede ser aleatorio siempre que no sea terminal
+- Por ahora puse las 4 acciones tal como estaban en el taxi original, pero se podrían agrupar en "move"
+- Crear de nuevo el venv o ver como arreglar que "pip" no funciona bien dentro del venv
+- Añadir informacion del total del pasos al ambiente de manera que pueda detectar la situacion de truncated cuando alcanze el numero maximo de pasos
+- Los cambios que hagan en la copia local del ambiente dentro de causal-rl copiarlos luego para el proyecto propio del ambiente
+- Ver como puedo instalar los ambientes en el proyecto causal-rl desde su propio directorio.
+- Por ahora hice una copia completa para dentro de causal-rl/venv/.... gym/our_gym_environments/ y los registré manualmente
+- Ver como logro correr el ambiente con retroalimentacion visual desde el cliente pycharm en mi maquina del cubo(revisar como lo hice en la casa)
+- En la parte de la inicializacion del dataset con ejemplos sinteticos. Ver si es mejor generar los ejemplos sinteticos solo bajo demanda. Para de esa
+forma minimizar la cantidad necesaria de los mismo y poder extender mas facil a dominios con variables discretas de cardinalidad (n)
+- Ver estrategias de exploracion como ArgMax e Intrinsic Motivation
+- Tener en cuenta el diseño de la funcion de recompenza en amientes de sparse reward the acuerdo al paper
+- Quitar de los posibles estados las pocisiones ocupadas por las paredes horizontales para
+que no inicialize al agente en una de esas posiciones. (Esto no es tan grave ya que si el agente empieza en una de
+estas posiciones en pocos movimientos lograra salir de la pared y ya lueog no podrá regresar)
+
+
+

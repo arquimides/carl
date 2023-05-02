@@ -1,0 +1,15 @@
+matplotlib~=3.5.1
+numpy~=1.22.1
+rpy2~=3.5.1
+gym~=0.26.0
+pygame~=2.1.2
+ale-py~=0.7.5
+# R an some libs are also required
+# bnlearn install.packages("https://www.bnlearn.com/releases/bnlearn_latest.tar.gz", repos = NULL, type = "source")
+# Rgraphviz if (!require("BiocManager", quietly = TRUE))
+#           +     install.packages("BiocManager")
+#           BiocManager::install("Rgraphviz")
+# Authorization token for github at INAOE 2090I: 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
+
+# Installing Tkinter for Dynamic plotting using gym.PlayPlot
+# apt-get install python-tk

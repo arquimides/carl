@@ -696,6 +696,8 @@ class Model:
 
 if __name__ == '__main__':
 
+    # probando
+
     # Single test
     experiments_to_run = [config.exp_taxi_small_eduardo_1]
 

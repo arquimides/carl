@@ -1,5 +1,17 @@
 TODO LIST:
 
+0- Organizar este fichero de acuerdo a los 5 puntos
+
+Cosas de la reunion:
+
+1. Probar otras tareas (primero cafe y luego estado continuo (Juego ver con Armando))
+2. Exploracion explotacion (Ver la idea de tener dos epsilon uno para utilziar el modelo y otro para descubir el modelo)
+3. Añadir Q en el modelo o considerarla en la toma de decisiones para que no solo tome las acciones buenas para el momento
+revisar sugerencia del revisor del PGM al respecto
+4. Estrategias de exploracion para descubrir el modelo causal en menos interacciones.
+5. Implementar un solo modelo adicionando la variable accion en el tiempo t (no es prioridad)
+
+
 Probar bien los agentes corriendo la politica optima al terminar el transfer.
 A lo mejor hay que darle unos episodios mas para pruebla.
 

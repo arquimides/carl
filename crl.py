@@ -20,7 +20,7 @@ load_model_function_r = ro.globalenv['load_model']
 dbn_inference_function_r = ro.globalenv['dbn_inference']
 plot_gt_funtion_r = ro.globalenv['plot_ground_truths']
 
-min_frequency = 20
+min_frequency = 10
 
 
 class DynaQ:
@@ -696,16 +696,14 @@ class Model:
 
 if __name__ == '__main__':
 
-    # probando
-
     # Single test
-    experiments_to_run = [config.exp_taxi_small_eduardo_1]
+    experiments_to_run = [config.exp_coffee_2_1, config.exp_coffee_2_2, config.exp_coffee_2_3, config.exp_coffee_2_4]
 
     # RL for CD vs RL
-    #experiments_to_run = [config.exp_taxi_small_eduardo_1, config.exp_taxi_small_eduardo_2, config.exp_taxi_small_eduardo_3, config.exp_taxi_small_eduardo_4]
+    #experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4]
 
     # CARL vs RL
-    # experiments_to_run = [config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4]
+    #experiments_to_run = [config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4]
 
     # CARL vs RL at different T. For Appendix
     #experiments_to_run = [config.exp_taxi_small_3_1, config.exp_taxi_small_3_2, config.exp_taxi_small_3_3, config.exp_taxi_small_3_4]
@@ -716,8 +714,14 @@ if __name__ == '__main__':
     # Transfer Learning
     # experiments_to_run = [config.exp_taxi_big_1_1]
 
-    # ALL
-    # experiments_to_run = [config.exp_taxi_small_eduardo_1, config.exp_taxi_small_eduardo_2, config.exp_taxi_small_eduardo_3, config.exp_taxi_small_eduardo_4,
+    # ALL FOR THE COFFEE
+    # experiments_to_run = [config.exp_coffee_1_1, config.exp_coffee_1_2, config.exp_coffee_1_3, config.exp_coffee_1_4,
+    #                       config.exp_coffee_2_1, config.exp_coffee_2_2, config.exp_coffee_2_3, config.exp_coffee_2_4,
+    #                       config.exp_coffee_3_1, config.exp_coffee_3_2, config.exp_coffee_3_3, config.exp_coffee_3_4,
+    #                       config.exp_coffee_4_1, config.exp_coffee_4_2, config.exp_coffee_4_3, config.exp_coffee_4_4]
+
+    # ALL FOR THE TAXI
+    # experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4,
     #                       config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4,
     #                       config.exp_taxi_small_3_1, config.exp_taxi_small_3_2, config.exp_taxi_small_3_3, config.exp_taxi_small_3_4,
     #                       config.exp_taxi_small_4_1, config.exp_taxi_small_4_2, config.exp_taxi_small_4_3, config.exp_taxi_small_4_4,
@@ -891,12 +895,19 @@ if __name__ == '__main__':
 
         if len(causal_qlearning_shd_distances) > 0:
 
-            cd_times = len(causal_qlearning_shd_distances[0][0][list(shd_distances.keys())[0]])
+            #cd_times = len(causal_qlearning_shd_distances[0][1][list(shd_distances.keys())[0]])
 
             # Average CD results over each dict entry in causal_qlearning_shd_distances
             alg_average_distances = []  # To calculate the average distances of each algorithm doing CD {}
-            alg_total_shd_mean = np.zeros((len(alg_doing_cd_name), cd_times))
-            alg_total_shd_std = np.zeros((len(alg_doing_cd_name), cd_times))
+            alg_total_shd_mean = []
+            alg_total_shd_std = []
+
+            alg_cd_times = [] # To store the times each algorithm perform CD
+
+            for i in range(len(causal_qlearning_shd_distances[0])):
+                alg_cd_times.append(len(causal_qlearning_shd_distances[0][i][list(shd_distances.keys())[0]]))
+                alg_total_shd_mean.append(np.zeros(alg_cd_times[i]))
+                alg_total_shd_std.append(np.zeros(alg_cd_times[i]))
 
             for index in range(len(alg_doing_cd_name)):
                 average_distances = {}
@@ -910,7 +921,7 @@ if __name__ == '__main__':
                     temp = causal_qlearning_shd_distances[t][index]
                     shd_distances.append(temp)
                     total_shd_trial_distance = []
-                    for i in range(cd_times):
+                    for i in range(alg_cd_times[index]):
                         total_shd = 0
                         for action_name in temp:
                             total_shd += temp[action_name][i]
@@ -955,12 +966,8 @@ if __name__ == '__main__':
             #         alg_total.append(shd_sum)
             #     alg_total_shd_distances.append(alg_total)
 
-
-
             # Plot and save the CD average results for each algorithm performing CD
-            util.plot_total_cd_results(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_std,
-                                 results_folder + "/" + experiment_folder_name + "/average/cd_results/",
-                                 alg_episode_stages, epsilon_values)
+            util.plot_total_cd_results(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_std, results_folder + "/" + experiment_folder_name + "/average/cd_results/", alg_episode_stages, epsilon_values)
 
         # get the execution time estimation
         et = time.time()

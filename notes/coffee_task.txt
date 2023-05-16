@@ -1,0 +1,15 @@
+En el coffee task la funcion original propuesta por los autores no converge.
+DynaQ no funciona mucho mejor que Q-Learning en la tarea del cafe, incluso en el ambiente determinista.
+Probablemente sea por el diseño de la funcion de recompenza. Al tener tanta recompenza diferente en casi todos los
+estados no hay mucha diferencia en la tarea del café. La funcion que teniamos da demasiada recompenza por lo que Dyna-Q no supera a Q-Learning.
+La variable reward no tendrá la misma cardinalidad en los modelos de cada accion, ya que solo tendrá
+3 valores en la accion DC y en el resto solo 2 y la mayoría de los casos incluso 1. Sin embargo esto no afecta al algoritmo
+de descubrimiento.
+Falta poner que la cardinalidad de USerHOldingCOfee at time i es 1 poruq se están descubriendo relaciones falsas con esa arista.
+Eso no puedo hacerlo así que lo mejor puede ser quitar esa variable. En realidad no influye en nada y por eso la quitamos.
+Fue muy intersante ver como en el ground truth de DC nos dimos cuentas que robot_holding_coffee en J no depende de ninguna
+variable, ya que cada vez que se abre el brazo no vas a tener nada en las manos luego independientemente de en que estado
+estabas.
+
+Esto ultimo hay que tenerlo en cuenta si vamos a hacer inferencia del las variables de estado en el tiempo i+1
+ya que robot_holding_coffee en J no dependeria de nadie.

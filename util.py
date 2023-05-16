@@ -8,7 +8,7 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 
 # Change this to "pdf" for the final version
-export_format = [".pdf", ".svg", ".png"][2]
+export_formats = ["pdf", "svg", "png"]
 font_size = 16
 legend_item_size = 13
 
@@ -29,7 +29,7 @@ def multi_plot_data(names, mean_data, std_data, folder, fig_name, y_name, x_name
         if x_fixed is not None:  # We have different sample rate at x-axis
             x = x_fixed[i]
         else:
-            x = np.arange(mean_data[0].size) # All functions share the x-axis
+            x = np.arange(mean_data[i].size) # All functions share the x-axis
 
         lines += ax.plot(x, mean_data[i], '-', linewidth=linewidth, markersize=2, label=names[i])
         if std_data is not None:
@@ -125,8 +125,9 @@ def multi_plot_data(names, mean_data, std_data, folder, fig_name, y_name, x_name
     if not os.path.isdir(folder):
         Path(folder).mkdir(parents=True, exist_ok=True)
 
-    figure = fig.savefig("{}/{}".format(folder, fig_name), bbox_inches='tight')
-    plt.close(figure)
+    for img_format in export_formats:
+        figure = fig.savefig("{}/{}.{}".format(folder, fig_name, img_format), bbox_inches='tight')
+        plt.close(figure)
 
 
 def plot_rl_results(alg_names, algorithm_r_mean, algorithm_steps_mean, algorithm_r_std, algorithm_steps_std, folder,
@@ -155,12 +156,12 @@ def plot_rl_results(alg_names, algorithm_r_mean, algorithm_steps_mean, algorithm
             smoothed_x = np.convolve(x, y, 'same') / np.convolve(z, y, 'same')
             algorithm_steps_mean[i] = smoothed_x
 
-    multi_plot_data(alg_names, algorithm_r_mean, algorithm_r_std, folder, '%.2f' % e + "_" + evaluation_metric.value + "{}".format(export_format),
+    multi_plot_data(alg_names, algorithm_r_mean, algorithm_r_std, folder, '%.2f' % e + "_" + evaluation_metric.value,
                     "avg-reward", "episodes",
                     ['center right', 'lower right'], None, episode_stage, epsilon_values, ["Algorithm", "Stage"])
 
     multi_plot_data(alg_names, algorithm_steps_mean, algorithm_steps_std, folder,
-                    '%.2f' % e + "_" + "Episode Steps" + "{}".format(export_format),
+                    '%.2f' % e + "_" + "Episode Steps",
                     "avg-steps", "episodes",
                     ['upper right', 'center right'], None, episode_stage, epsilon_values, ["Algorithm", "Stage"])
 
@@ -185,7 +186,7 @@ def plot_cd_results(alg_doing_cd_name, alg_shd_distances, parent_folder, alg_epi
             data.append(distances[action])
             x_fixed.append(np.array(x_values))
 
-        multi_plot_data(names, np.array(data), None, parent_folder + "/" + cd_alg_name, "cd_analisis" + "{}".format(export_format), "shd", "episodes", ['upper right', 'lower right'],
+        multi_plot_data(names, np.array(data), None, parent_folder + "/" + cd_alg_name, "cd_analisis", "shd", "episodes", ['upper right', 'lower right'],
                         x_fixed, None, epsilon_values, ["Action name", "Stage"])
 
     # x_fixed = []  # to store the RL using CD episode numbers
@@ -215,7 +216,7 @@ def plot_total_cd_results(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_s
 
         x_fixed.append(np.array(x_points))
 
-    multi_plot_data(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_std, parent_folder, "total_shd" + "{}".format(export_format), "shd", "episodes", ['upper right', 'center right'],
+    multi_plot_data(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_std, parent_folder, "total_shd", "shd", "episodes", ['upper right', 'center right'],
                         x_fixed, None, epsilon_values, ["Algorithm", "Stage"])
 
     # x_fixed = []  # to store the RL using CD episode numbers

@@ -4,15 +4,15 @@ library(Rgraphviz)
 # Ground Truth Models
 
 # ct prefix stands for Coffee Task
-ct_go_dbn <- model2network("[slI][suI][srI][swI][scI][shI][slJ|slI][suJ|suI][srJ|srI][swJ|suI:srI:swI][scJ|scI][shJ|shI][reward|slI:scI]")
-ct_gu_dbn <- model2network("[slI][suI][srI][swI][scI][shI][slJ|slI][suJ|slI:suI][srJ|srI][swJ|swI][scJ|scI][shJ|shI][reward|slI:suI:srI]")
-ct_bc_dbn <- model2network("[slI][suI][srI][swI][scI][shI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ|slI:scI][shJ|shI][reward|slI:scI]")
-ct_dc_dbn <- model2network("[slI][suI][srI][swI][scI][shI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ|scI][shJ|slI:scI][reward|slI:scI]")
+ct_go_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|suI:srI:swI][scJ|scI][reward|slI:scI]")
+ct_gu_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|slI:suI][srJ|srI][swJ|swI][scJ|scI][reward|slI:suI:srI]")
+ct_bc_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ|slI:scI][reward|slI:scI]")
+ct_dc_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ][reward|slI:scI]")
 ct_gt_models <- list("go" = ct_go_dbn, "gu" = ct_gu_dbn, "bc" = ct_bc_dbn, "dc" = ct_dc_dbn)
 ct_actions <- c("go","gu","bc","dc")
-ct_V <- c("slI", "suI", "srI", "swI", "scI", "shI", "slJ", "suJ", "srJ", "swJ", "scJ", "shJ", "reward")
-ct_t0.nodes <- c("slI", "suI", "srI", "swI", "scI", "shI")
-ct_t1.nodes <- c("slJ", "suJ", "srJ", "swJ", "scJ", "shJ", "reward")
+ct_V <- c("slI", "suI", "srI", "swI", "scI", "slJ", "suJ", "srJ", "swJ", "scJ", "reward")
+ct_t0.nodes <- c("slI", "suI", "srI", "swI", "scI")
+ct_t1.nodes <- c("slJ", "suJ", "srJ", "swJ", "scJ", "reward")
 ct_bl <- set2blacklist(ct_t0.nodes)
 ct_bl <- rbind(ct_bl,set2blacklist(ct_t1.nodes))
 ct_bl <- rbind(ct_bl, tiers2blacklist(list(ct_t0.nodes,ct_t1.nodes)))
@@ -180,7 +180,6 @@ causal_discovery_using_rl_data <- function(environment_name, data_set_path, acti
         fitted <- bn.fit(learned,Data)
         write.net(paste(data_set_path,action_name,".net", sep=""), fitted)
       # }else{
-        #learned <-model2network("[slI][suI][srI][swI][scI][shI][slJ][suJ][srJ][swJ][scJ][shJ][reward]")
         fitted <- "null"
         # TODO implementar esto
       # }

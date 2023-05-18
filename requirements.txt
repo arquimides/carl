@@ -1,7 +1,7 @@
 matplotlib~=3.5.1
 numpy~=1.22.1
 rpy2~=3.5.1
-gym~=0.26.0
+gymnasium~=0.28.1
 pygame~=2.1.2
 ale-py~=0.7.5
 # R an some libs are also required

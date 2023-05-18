@@ -1,15 +1,14 @@
-import gym
+import gymnasium as gym
+import our_gym_environments
 import numpy as np
 import rpy2.robjects as ro  # Packages for Python-R communication
 import time
 
-from matplotlib import pyplot as plt
-
 import util
 import sys
 from experiments_configurations import config
-from experiments_configurations.config import EpsilonStrategy, EvaluationMetric, EpisodeStateInitialization, Times, \
-    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, RLConf, ActionCountStrategy
+from experiments_configurations.config import EvaluationMetric, EpisodeStateInitialization, Times, \
+    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy
 
 # Configuring the rpy2 stuff for R communication
 r = ro.r  # Creating the R instance
@@ -697,7 +696,7 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    experiments_to_run = [config.exp_coffee_2_1, config.exp_coffee_2_2, config.exp_coffee_2_3, config.exp_coffee_2_4]
+    experiments_to_run = [config.exp_coffee_0]
 
     # RL for CD vs RL
     #experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4]

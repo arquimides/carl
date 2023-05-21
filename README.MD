@@ -16,28 +16,7 @@ Méndez-Molina, Arquímides and Morales, Eduardo and L. Enrique, Sucar, Carl: A 
   ```
   pip install -r requirements.txt
   ```
-4. Install the Gym environments: Find the gym folder inside your venv and copy the folder "our gym environments" inside the dir "gym/envs", at the same level of other pre-installed folders like "atari", "mujoco", ect. Then add the followings entries at the end of the `__init__.py` file located in "gym/envs":
-
-```
-register(
-    id="CoffeeTaskEnv-v0",
-    entry_point="gym.envs.our_gym_environments.coffee_task_env:CoffeeTaskEnv",
-    nondeterministic=True,
-)
-
-register(
-    id="TaxiSmallEnv-v0",
-    entry_point="gym.envs.our_gym_environments.taxi_small_env:TaxiSmallEnv",
-    nondeterministic=True,
-)
-
-register(
-    id="TaxiBigEnv-v0",
-    entry_point="gym.envs.our_gym_environments.taxi_big_env:TaxiBigEnv",
-    nondeterministic=True,
-)
-```
-5. Install the required R libs (bnlearn and Rgraphviz):
+4. Install the required R libs (bnlearn and Rgraphviz): Execute the following commands in R console.
 
 ```
 install.packages("https://www.bnlearn.com/releases/bnlearn_latest.tar.gz", repos = NULL, type = "source")
@@ -47,6 +26,7 @@ if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install("Rgraphviz")
 ```
 
+5. Install the Gym environments: This project uses custom OpenIA Gym environments to test an agent performing CARL. The code for the environments is a standalone project that you can clone and download at https://github.com/arquimides/our_gym_environments . In the project page you can find the instructions to install the environments in the same virtual-env you are using.
 
 ## Usage
 

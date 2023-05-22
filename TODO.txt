@@ -1,7 +1,5 @@
 TODO LIST (contraseña IJAR: oeazfmpmmIJAR2023)
 
-0. Actualizar el README.MD con las nuevas instrucciones de instalacion de los ambientes de gymnasium
-
 1. Probar otras tareas (primero cafe y luego estado continuo (Juego ver con Armando))
 
 Crear todos los experimentos del coffee task determinista y dejar corriendo.

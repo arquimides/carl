@@ -4,9 +4,9 @@ from enum import Enum
 import numpy as np
 
 class EnvironmentNames(Enum):
-    COFFEE = "CoffeeTaskEnv-v0"
-    TAXI_SMALL = "TaxiSmallEnv-v0"
-    TAXI_BIG = "TaxiBigEnv-v0"
+    COFFEE = "our_gym_environments/CoffeeTaskEnv-v0"
+    TAXI_SMALL = "our_gym_environments/TaxiSmallEnv-v0"
+    TAXI_BIG = "our_gym_environments/TaxiBigEnv-v0"
 
 class EnvironmentType(Enum):
     STOCHASTIC = "stochastic"

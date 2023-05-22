@@ -5,7 +5,7 @@ transitar a un estado relacional no visitado
 
 
 
-Estrategias para utilizar el modelos en los episodios que son RL+CD
+Estrategias para utilizar el modelos en los episodios que son RL using CD
 
 1. Cuando estamos utilizando el modelo, seleccionamos la accion o filtramos las malas
     Si hay una buena la hacemos directamente y si hay opciones elegimos una aleatoria y la hacemos.

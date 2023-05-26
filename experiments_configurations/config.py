@@ -58,6 +58,12 @@ class ModelDiscoveryStrategy(Enum):
     GU = 1
     BC = 2
     DC = 3
+    SOUTH = 0
+    NORTH = 1
+    EAST = 2
+    WEST = 3
+    PICK = 4
+    DROP = 5
 
 
 class Times(Enum):
@@ -184,7 +190,7 @@ rl_conf_8 = RLConf("Dyna Q n50", combination_strategy_7, 50, 1, 0.95, 0.1, 0.1, 
 
 
 #############################################################
-#               COFFEE TASK (DETERMINISTIC)                 #
+#                          COFFEE TASK                      #
 #############################################################
 
 #############################################################
@@ -205,7 +211,7 @@ crl_conf_dc = CRLConf("CRL-T60-DC", combination_strategy_6, rl_conf_1.n, rl_conf
                      60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.DC, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 # One time run experiment to make a full exploration to discover the underlying Ground Truths for each action
-exp_coffee_0 = ExpConf("Ground Truth search", EnvironmentNames.COFFEE, EnvironmentType.DETERMINISTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 2000, 100, ActionCountStrategy.Original, True, [crl_conf_go, crl_conf_gu, crl_conf_bc, crl_conf_dc])
+exp_coffee_0 = ExpConf("Ground Truth search", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 2000, 100, ActionCountStrategy.Original, True, [crl_conf_go, crl_conf_gu, crl_conf_bc, crl_conf_dc])
 
 #############################################################################################
 # FIRST experiment to test the advances of our proposed new RLforCD, CD stage against RL,CD #
@@ -220,34 +226,32 @@ crl_conf_100 = CRLConf("RL agent", combination_strategy_0, rl_agent_params.n, rl
                      10, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 crl_conf_101 = CRLConf("RL for CD agent", combination_strategy_1, rl_for_cd_agent_params.n, rl_for_cd_agent_params.alpha, rl_for_cd_agent_params.gamma, rl_for_cd_agent_params.epsilon_start, rl_for_cd_agent_params.epsilon_end, rl_for_cd_agent_params.rl_action_selection_strategy, rl_for_cd_agent_params.episode_state_initialization,
                      10, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
-
-
 # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
-exp_coffee_1_1 = ExpConf("RL vs RL for CD T10", EnvironmentNames.COFFEE, EnvironmentType.DETERMINISTIC, 10, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Relational, True, [crl_conf_100, crl_conf_101])
+exp_coffee_1_1 = ExpConf("RL vs RL for CD T10", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Relational, True, [crl_conf_100, crl_conf_101])
+
 
 crl_conf_102 = CRLConf("RL agent", combination_strategy_0, rl_agent_params.n, rl_agent_params.alpha, rl_agent_params.gamma, rl_agent_params.epsilon_start, rl_agent_params.epsilon_end, rl_agent_params.rl_action_selection_strategy, rl_agent_params.episode_state_initialization,
                      20, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 crl_conf_103 = CRLConf("RL for CD agent", combination_strategy_1, rl_for_cd_agent_params.n, rl_for_cd_agent_params.alpha, rl_for_cd_agent_params.gamma, rl_for_cd_agent_params.epsilon_start, rl_for_cd_agent_params.epsilon_end, rl_for_cd_agent_params.rl_action_selection_strategy, rl_for_cd_agent_params.episode_state_initialization,
                      20, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
-
 # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
-exp_coffee_1_2 = ExpConf("RL vs RL for CD T20", EnvironmentNames.COFFEE, EnvironmentType.DETERMINISTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_102, crl_conf_103])
+exp_coffee_1_2 = ExpConf("RL vs RL for CD T20", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_102, crl_conf_103])
+
 
 crl_conf_104 = CRLConf("RL agent", combination_strategy_0, rl_agent_params.n, rl_agent_params.alpha, rl_agent_params.gamma, rl_agent_params.epsilon_start, rl_agent_params.epsilon_end, rl_agent_params.rl_action_selection_strategy, rl_agent_params.episode_state_initialization,
                      50, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 crl_conf_105 = CRLConf("RL for CD agent", combination_strategy_1, rl_for_cd_agent_params.n, rl_for_cd_agent_params.alpha, rl_for_cd_agent_params.gamma, rl_for_cd_agent_params.epsilon_start, rl_for_cd_agent_params.epsilon_end, rl_for_cd_agent_params.rl_action_selection_strategy, rl_for_cd_agent_params.episode_state_initialization,
                      50, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
-
 # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
-exp_coffee_1_3 = ExpConf("RL vs RL for CD T50", EnvironmentNames.COFFEE, EnvironmentType.DETERMINISTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_104, crl_conf_105])
+exp_coffee_1_3 = ExpConf("RL vs RL for CD T50", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_104, crl_conf_105])
+
 
 crl_conf_106 = CRLConf("RL agent", combination_strategy_0, rl_agent_params.n, rl_agent_params.alpha, rl_agent_params.gamma, rl_agent_params.epsilon_start, rl_agent_params.epsilon_end, rl_agent_params.rl_action_selection_strategy, rl_agent_params.episode_state_initialization,
                      100, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 crl_conf_107 = CRLConf("RL for CD agent", combination_strategy_1, rl_for_cd_agent_params.n, rl_for_cd_agent_params.alpha, rl_for_cd_agent_params.gamma, rl_for_cd_agent_params.epsilon_start, rl_for_cd_agent_params.epsilon_end, rl_for_cd_agent_params.rl_action_selection_strategy, rl_for_cd_agent_params.episode_state_initialization,
                      100, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
-
 # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
-exp_coffee_1_4 = ExpConf("RL vs RL for CD T100", EnvironmentNames.COFFEE, EnvironmentType.DETERMINISTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_106, crl_conf_107])
+exp_coffee_1_4 = ExpConf("RL vs RL for CD T100", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [crl_conf_106, crl_conf_107])
 
 
 # #####################################################################################################################
@@ -387,6 +391,33 @@ exp_coffee_4_4 = ExpConf("CARL T50 vs RL e0.1dec", EnvironmentNames.COFFEE, Envi
 #############################################################
 #                 TAXI TASK (DETERMINISTIC)                 #
 #############################################################
+
+#############################################################
+# ZERO experiment to find the Ground Truth Models           #
+#############################################################
+
+# CRL configurations where the combination strategy is always RLforCD, CD, Repeat and ModelDiscoveryStrategy is to perform allways the same action, also each episode start in a different consecutive state to cover all the cases
+crl_conf_south = CRLConf("CRL-T60_SOUTH", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.SOUTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+crl_conf_north = CRLConf("CRL-T60-NORTH", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.NORTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+crl_conf_east = CRLConf("CRL-T60-EAST", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.EAST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+crl_conf_west = CRLConf("CRL-T60-WEST", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.WEST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+crl_conf_pick = CRLConf("CRL-T60-PICK", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.PICK, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+crl_conf_drop = CRLConf("CRL-T60-DROP", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
+                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.DROP, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+# One time run experiment to make a full exploration to discover the underlying Ground Truths for each action
+exp_taxi_small_0 = ExpConf("Ground Truth search", EnvironmentNames.TAXI_SMALL, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 10000, 5, ActionCountStrategy.Original, True, [crl_conf_pick, crl_conf_drop])
+
 
 #############################################################
 # ZERO experiment to find the best Model-free RL parameters #

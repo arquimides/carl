@@ -1,7 +1,7 @@
 library(bnlearn)
 library(Rgraphviz)
 
-# Ground Truth Models
+# Ground Truth Models for DETERMINISTIC environments, where r depends only on st and a
 
 # ct prefix stands for Coffee Task
 ct_go_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|suI:srI:swI][scJ|scI][reward|slI:scI]")
@@ -17,46 +17,78 @@ ct_bl <- set2blacklist(ct_t0.nodes)
 ct_bl <- rbind(ct_bl,set2blacklist(ct_t1.nodes))
 ct_bl <- rbind(ct_bl, tiers2blacklist(list(ct_t0.nodes,ct_t1.nodes)))
 
-# # tt prefix stands for Our Taxi Task
-# tt_south_dbn <- model2network("[wpI][lI][wpJ|wpI][lJ|lI][reward]")
-# tt_north_dbn <- model2network("[wpI][lI][wpJ|wpI][lJ|lI][reward]")
-# tt_east_dbn <- model2network("[wpI][lI][wpJ|wpI][lJ|lI][reward]")
-# tt_west_dbn <- model2network("[wpI][lI][wpJ|wpI][lJ|lI][reward]")
-# tt_pick_dbn <- model2network("[wpI][lI][wpJ|wpI:lI][lJ|lI][reward|wpI:lI]")
-# tt_drop_dbn <- model2network("[wpI][lI][wpJ|wpI:lI][lJ|lI][reward|wpI:lI]")
-# tt_gt_models <- list("south" = tt_south_dbn,"north" = tt_north_dbn, "east" = tt_east_dbn, "west" = tt_west_dbn, "pick" = tt_pick_dbn, "drop" = tt_drop_dbn)
-# tt_actions <- c("south","north","east","west","pick","drop")
-# tt_V <- c("wpI", "lI", "wpJ", "lJ", "reward")
-# tt_t0.nodes <- c("wpI", "lI")
-# tt_t1.nodes <- c("wpJ", "lJ", "reward")
-# tt_bl <- set2blacklist(tt_t0.nodes)
-# tt_bl <- rbind(tt_bl,set2blacklist(tt_t1.nodes))
-# tt_bl <- rbind(tt_bl, tiers2blacklist(list(tt_t0.nodes,tt_t1.nodes)))
+# tt prefix stands for the two versions of the Taxi Task. The one with 3 relational variables and penalty on bad actions
+tt_south_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
+tt_north_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
+tt_east_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
+tt_west_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
+tt_pick_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:lI]")
+tt_drop_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:lI]")
+tt_gt_models <- list("south" = tt_south_dbn,"north" = tt_north_dbn, "east" = tt_east_dbn, "west" = tt_west_dbn, "pick" = tt_pick_dbn, "drop" = tt_drop_dbn)
+tt_actions <- c("south","north","east","west","pick","drop")
+tt_V <- c("wpI", "lI", "nwI", "wpJ", "lJ", "nwJ", "reward")
+tt_t0.nodes <- c("wpI", "lI", "nwI")
+tt_t1.nodes <- c("wpJ", "lJ", "nwJ", "reward")
+tt_bl <- set2blacklist(tt_t0.nodes)
+tt_bl <- rbind(tt_bl,set2blacklist(tt_t1.nodes))
+tt_bl <- rbind(tt_bl, tiers2blacklist(list(tt_t0.nodes,tt_t1.nodes)))
 
-# tt2 prefix stands for Our Taxi 2 Task. The one with 3 relational variables and penalty on bad actions
-tt2_south_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
-tt2_north_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
-tt2_east_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
-tt2_west_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI]")
-tt2_pick_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:lI]")
-tt2_drop_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:lI]")
+# Ground Truth Models for STOCHASTIC environments where r depends on st, st+1 and a
+
+# ct2 prefix stands for Coffee Task
+ct2_go_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|suI:srI:swI][scJ|scI][reward|slI:scI:slJ]")
+ct2_gu_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|slI:suI][srJ|srI][swJ|swI][scJ|scI][reward|slI:suI:srI:suJ]")
+ct2_bc_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ|slI:scI][reward|scI:scJ]")
+ct2_dc_dbn <- model2network("[slI][suI][srI][swI][scI][slJ|slI][suJ|suI][srJ|srI][swJ|swI][scJ|scI][reward|slI:swI:scI:scJ]")
+ct2_gt_models <- list("go" = ct2_go_dbn, "gu" = ct2_gu_dbn, "bc" = ct2_bc_dbn, "dc" = ct2_dc_dbn)
+ct2_actions <- c("go","gu","bc","dc")
+ct2_V <- c("slI", "suI", "srI", "swI", "scI", "slJ", "suJ", "srJ", "swJ", "scJ", "reward")
+ct2_t0.nodes <- c("slI", "suI", "srI", "swI", "scI")
+ct2_t1.nodes <- c("slJ", "suJ", "srJ", "swJ", "scJ")
+ct2_t2.nodes <- c("reward")
+ct2_bl <- set2blacklist(ct2_t0.nodes)
+ct2_bl <- rbind(ct2_bl,set2blacklist(ct2_t1.nodes))
+ct2_bl <- rbind(ct2_bl,set2blacklist(ct2_t2.nodes))
+ct2_bl <- rbind(ct2_bl, tiers2blacklist(list(ct2_t0.nodes,ct2_t1.nodes)))
+ct2_bl <- rbind(ct2_bl, tiers2blacklist(list(ct2_t0.nodes,ct2_t2.nodes)))
+ct2_bl <- rbind(ct2_bl, tiers2blacklist(list(ct2_t1.nodes,ct2_t2.nodes)))
+
+# tt2 prefix stands for the two versions of the Taxi Task. The one with 3 relational variables and penalty on bad actions
+tt2_south_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
+tt2_north_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
+tt2_east_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
+tt2_west_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
+tt2_pick_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:wpJ:lI]")
+tt2_drop_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:wpJ:lI]")
 tt2_gt_models <- list("south" = tt2_south_dbn,"north" = tt2_north_dbn, "east" = tt2_east_dbn, "west" = tt2_west_dbn, "pick" = tt2_pick_dbn, "drop" = tt2_drop_dbn)
 tt2_actions <- c("south","north","east","west","pick","drop")
 tt2_V <- c("wpI", "lI", "nwI", "wpJ", "lJ", "nwJ", "reward")
 tt2_t0.nodes <- c("wpI", "lI", "nwI")
-tt2_t1.nodes <- c("wpJ", "lJ", "nwJ", "reward")
+tt2_t1.nodes <- c("wpJ", "lJ", "nwJ")
+tt2_t2.nodes <- c("reward")
 tt2_bl <- set2blacklist(tt2_t0.nodes)
 tt2_bl <- rbind(tt2_bl,set2blacklist(tt2_t1.nodes))
+tt2_bl <- rbind(tt2_bl,set2blacklist(tt2_t2.nodes))
 tt2_bl <- rbind(tt2_bl, tiers2blacklist(list(tt2_t0.nodes,tt2_t1.nodes)))
+tt2_bl <- rbind(tt2_bl, tiers2blacklist(list(tt2_t0.nodes,tt2_t2.nodes)))
+tt2_bl <- rbind(tt2_bl, tiers2blacklist(list(tt2_t1.nodes,tt2_t2.nodes)))
 
 
-task_parameters = list("CoffeeTaskEnv" = list("gt_models" = ct_gt_models, "actions" = ct_actions, "V" = ct_V, "t0.nodes" = ct_t0.nodes, "t1.nodes" = ct_t1.nodes, "bl" = ct_bl),
-                       "TaxiBigEnv"    = list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "bl" = tt2_bl ),
-                       "TaxiSmallEnv"   = list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "bl" = tt2_bl ))
+task_parameters <- list("CoffeeTaskEnv" = list("deterministic" = (list("gt_models" = ct_gt_models, "actions" = ct_actions, "V" = ct_V, "t0.nodes" = ct_t0.nodes, "t1.nodes" = ct_t1.nodes, "bl" = ct_bl)),
+                                               "stochastic" = (list("gt_models" = ct2_gt_models, "actions" = ct2_actions, "V" = ct2_V, "t0.nodes" = ct2_t0.nodes, "t1.nodes" = ct2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = ct2_bl))
+                                                                      ),
+                       "TaxiBig"    = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
+                                           "stochastic" = (list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = tt2_bl))
+                                                                   ),
+                       "TaxiSmallEnv"   = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
+                                               "stochastic" = (list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = tt2_bl))
+                                                                      )
+                       )
 
-plot_ground_truths <- function(environment_name, gt_folder){
+plot_ground_truths <- function(environment_name, environment_type, gt_folder){
 
-  params = task_parameters[[environment_name]]
+  params = task_parameters[[environment_name]][[environment_type]]
+
   jpeg(paste(gt_folder,"/ground_truth_models.jpg", sep = ""), width = 1920, height = 1080)
 
   actions_number = length(params$gt_models)
@@ -69,14 +101,41 @@ plot_ground_truths <- function(environment_name, gt_folder){
     gR <- graphviz.plot(params$gt_models[[action_name]], render = FALSE, main = name)
     sg0 <- list(graph = subGraph(params$t0.nodes, gR), cluster = TRUE)
     sg1<- list(graph = subGraph(params$t1.nodes, gR), cluster = TRUE)
-    gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1))
+    if(environment_type == "stochastic"){
+      sg2 <- list(graph = subGraph(params$t2.nodes, gR), cluster = TRUE)
+    }
+    subGList <- list(sg0,sg1)
+    if (environment_type == "stochastic"){
+      subGList <- append(subGList, list(sg2))
+    }
+    gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = subGList)
 
     cross <- vector()
+
+    # Draw arcs from t0 to t1
     for (ori in params$t0.nodes){
       for (dest in params$t1.nodes){
         cross <- append(cross,paste(ori, "~", dest, sep = ""))
       }
+
+      if(environment_type == "stochastic"){ # Draw arcs from t0 to t2
+        for (dest in params$t2.nodes){
+          cross <- append(cross,paste(ori, "~", dest, sep = ""))
+        }
+
+      }
+
     }
+
+    if(environment_type == "stochastic"){ # Draw arcs from t1 to t2
+      for (ori in params$t1.nodes){
+        for (dest in params$t2.nodes){
+          cross <- append(cross,paste(ori, "~", dest, sep = ""))
+        }
+
+      }
+    }
+
     edgeRenderInfo(gR)$col[cross] <- "red"
     renderGraph(gR)
 
@@ -86,19 +145,19 @@ plot_ground_truths <- function(environment_name, gt_folder){
   dev.off()
 }
 
-dbn_inference <- function (environment_name, current_state, dbn_fit){
+dbn_inference <- function (environment_name, environment_type, current_state, dbn_fit){
 
-  params <- task_parameters[[environment_name]]
+  params <- task_parameters[[environment_name]][[environment_type]]
 
-  # First, load the corresponding DBN model in the specified path
-  #dbn.fit <- read.net(dbn_fit, debug = FALSE)
+  # FOR DEBUF ONLY: First, load the corresponding DBN model in the specified path
+  # dbn_fit <- read.net(dbn_fit, debug = FALSE)
 
   #Note that both cpquery and cpdist are based on Monte Carlo particle filters, and therefore they may return slightly different values on different runs.
   #You can reduce the variability in the inference runs by increasing the number of draws in the sampling procedure by using the tuning parameter
 
   variable_names = params$t0.nodes
   variable_values = current_state
-  parents <- dbn_fit$reward$parents
+  parents <- intersect(dbn_fit$reward$parents, variable_names)
 
   names(variable_values) <- variable_names
 
@@ -155,9 +214,9 @@ load_model <- function (causal_model){
   return (dbn.fit)
 }
 
-causal_discovery_using_rl_data <- function(environment_name, data_set_path, action_name){
+causal_discovery_using_rl_data <- function(environment_name, environment_type, data_set_path, action_name){
 
-      params = task_parameters[[environment_name]]
+      params = task_parameters[[environment_name]][[environment_type]]
 
       # Filter the data frame to obtain variables of interest
       Data <- read.table(paste(data_set_path,action_name,".txt", sep=""), header = TRUE, colClasses = "factor")[,params$V]
@@ -215,12 +274,21 @@ causal_discovery_using_rl_data <- function(environment_name, data_set_path, acti
       sg0 <- list(graph = subGraph(params$t0.nodes, gT), cluster = TRUE)
       sg1<- list(graph = subGraph(params$t1.nodes, gT), cluster = TRUE)
       gT <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1))
+      if (environment_type == "stochastic"){
+        sg2<- list(graph = subGraph(params$t2.nodes, gT), cluster = TRUE)
+        gT <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1,sg2))
+      }
+
       renderGraph(gT)
 
       gR <- graphs[[2]]
-      sg2 <- list(graph = subGraph(params$t0.nodes, gR), cluster = TRUE)
-      sg3<- list(graph = subGraph(params$t1.nodes, gR), cluster = TRUE)
-      gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg2,sg3))
+      sg3 <- list(graph = subGraph(params$t0.nodes, gR), cluster = TRUE)
+      sg4<- list(graph = subGraph(params$t1.nodes, gR), cluster = TRUE)
+      gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4))
+      if (environment_type == "stochastic"){
+            sg5<- list(graph = subGraph(params$t2.nodes, gR), cluster = TRUE)
+            gR <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4,sg5))
+      }
 
       tp_arc <- vector()
       fp_arc <- vector()
@@ -253,8 +321,7 @@ causal_discovery_using_rl_data <- function(environment_name, data_set_path, acti
 
 }
 
-# p <- plot_ground_truths("OurTaxiEnv","D:/000-Code/Python/causal_rl/ground_truth_models/TaxiBigEnv-v0")
-# p <- plot_ground_truths("CoffeeTaskEnv","D:/000-Code/Python/causal_rl/ground_truth_models/CoffeeTaskEnv-v0")
-# d <- dbn_inference("CoffeeTaskEnv", c(1,1,0,1,1,0),"/home/kimo/PycharmProjects/causal_rl/experiments_results/20221208 162521 CoffeeTaskEnv T = 60 E = 600 t = 0.7 trials = 10/trial 1/cd_data/0_74/60/go.net")
+# p <- plot_ground_truths("CoffeeTaskEnv","stochastic", "D:/000-Code/Python/carl/ground_truth_models/our_gym_environments/CoffeeTaskEnv-v0")
+# d <- dbn_inference("CoffeeTaskEnv", "deterministic", c(0,0,0,0,0),"D:/000-Code/Python/carl/experiments_results/Deterministic Ground Truths Coffee Task/trial 1/cd_data_and_results/CRL-T60_GO/0_10/1980/go.net")
 # d <- dbn_inference("OurTaxi2Env", c(1,2,5),"D:/000-Code/Python/causal_rl/experiments_results/20221108 103846 OurTaxi2Env T = 200 E = 1000 t = 0.7 trials = 1/trial 1/cd_data/0_37/200/pick.net")
 # causal_discovery_using_rl_data("OurTaxiEnv","/home/kimo/PycharmProjects/causal_rl/experiments_results/20221021 104042 OurTaxiEnv T = 200 E = 1000 t = 0.7 trials = 1/trial 1/cd_data/0_37/200/", "pick")

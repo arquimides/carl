@@ -8,7 +8,7 @@ import util
 import sys
 from experiments_configurations import config
 from experiments_configurations.config import EvaluationMetric, EpisodeStateInitialization, Times, \
-    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy
+    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy, EnvironmentType
 
 # Configuring the rpy2 stuff for R communication
 r = ro.r  # Creating the R instance
@@ -382,7 +382,7 @@ class DynaQ:
                 # Load the stored cm_fitted object for the given action
                 dbn_fit = cm_fitted[action]
                 # Calculate the probability query of reward given the current state
-                prob = dbn_inference_function_r(self.env.spec.name, ro.IntVector(current_state), dbn_fit)
+                prob = dbn_inference_function_r(self.env.spec.name, environment_type, ro.IntVector(current_state), dbn_fit)
                 probs.append(list(prob))
 
             action_indexes = []  # To store the indexes of good actions
@@ -409,7 +409,7 @@ class DynaQ:
                 # Load the stored cm_fitted object for the given action
                 dbn_fit = cm_fitted[action]
                 # Calculate the probability query of reward given the current state
-                prob = dbn_inference_function_r(self.env.spec.name, ro.IntVector(current_state), dbn_fit)
+                prob = dbn_inference_function_r(self.env.spec.name, environment_type, ro.IntVector(current_state), dbn_fit)
                 probs.append(list(prob))
 
             # Check all elements in probs table to find the values of high reward higher than threshold and to filter
@@ -442,7 +442,7 @@ class DynaQ:
                 # Load the stored cm_fited object for the given action
                 dbn_fit = cm_fitted[action]
                 # Calculate the probability query of reward give the current state
-                prob = dbn_inference_function_r(self.env.spec.name, ro.IntVector(current_state), dbn_fit)
+                prob = dbn_inference_function_r(self.env.spec.name, environment_type, ro.IntVector(current_state), dbn_fit)
                 probs.append(np.argmax(list(prob)))
 
             return probs
@@ -460,7 +460,7 @@ class DynaQ:
             # The function read the data from file, estimate de model and save it
             # to another file using bnlearn write.net function in HUGIN flat network format,
             # then calculate the SHD respect the ground truth and finally plot and save the comparison
-            results = cd_function_r(self.env.spec.name, directory_path, action.lower())
+            results = cd_function_r(self.env.spec.name, environment_type, directory_path, action.lower())
             causal_models[action] = results[0][0]
             structural_distances[action] = results[1][0]
 
@@ -696,10 +696,10 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    experiments_to_run = [config.exp_coffee_0]
+    experiments_to_run = [config.exp_taxi_small_0]
 
     # RL for CD vs RL
-    #experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4]
+    # experiments_to_run = [config.exp_coffee_1_1, config.exp_coffee_1_2, config.exp_coffee_1_3, config.exp_coffee_1_4]
 
     # CARL vs RL
     #experiments_to_run = [config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4]
@@ -732,8 +732,10 @@ if __name__ == '__main__':
         environment_name = experiment_conf.env_name.value
         environment_type = experiment_conf.env_type.value
 
+        reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
+
         # Environment Initialization
-        env = gym.make(environment_name, env_type=environment_type, render_fps=64)
+        env = gym.make(environment_name, env_type=environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
         results_folder = "experiments_results"
@@ -744,7 +746,7 @@ if __name__ == '__main__':
         # A folder to store the Ground Truth models
         ground_truth_models_folder = "ground_truth_models/" + environment_name
         # Calling the R function to plot and save the Ground Truth Models
-        plot_gt_funtion_r(env.spec.name, ground_truth_models_folder)
+        plot_gt_funtion_r(env.spec.name, environment_type, ground_truth_models_folder)
 
         # Initializing experiment related params
         experiment_name = experiment_conf.exp_name
@@ -761,7 +763,7 @@ if __name__ == '__main__':
         # get the start time
         st = time.time()
 
-        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env, max_episodes, max_steps, action_count_strategy,shared_initial_states, trials)
+        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env.spec.name, environment_type, max_episodes, max_steps, action_count_strategy,shared_initial_states, trials)
         print("Starting Experiment: " + experiment_folder_name)
 
         # Variables to store the results on RL policy learning (reward and steps) among trials for each algorithm

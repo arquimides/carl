@@ -231,10 +231,10 @@ def plot_total_cd_results(alg_doing_cd_name, alg_total_shd_mean, alg_total_shd_s
     #                 'upper right',
     #                 x_fixed, None, None, None)
 
-def get_experiment_folder_name(exp_name, env, E, max_steps, action_count_strategy, shared_initial_states, trials):
+def get_experiment_folder_name(exp_name, env_name, environment_type, E, max_steps, action_count_strategy, shared_initial_states, trials):
     now = datetime.now()  # current date and time
     date_time = now.strftime("%Y%m%d %H%M%S")
-    return "{} {} {} Epi = {} steps = {} ace = {} sis = {} trials {}".format(date_time, env.spec.name, exp_name, E, max_steps,
+    return "{} {}-{} {} Epi = {} steps = {} ace = {} sis = {} trials {}".format(date_time, env_name, environment_type, exp_name, E, max_steps,
                                                                                           action_count_strategy.value, shared_initial_states,
                                                                                           trials)
 

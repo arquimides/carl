@@ -1,12 +1,11 @@
 TODO LIST (contraseña IJAR: oeazfmpmmIJAR2023)
 
+1. Volver a correr todos los experimentos con la nueva forma de recomepenza y en ambientes estocasticos y deterministas
+
+0. Cambiar la estrategia de PGM para que haga descubrimiento cada T episodios siempre y ver si e
+eso mejora la comparacion contra RL for CD en Coffee Task.
+
 1. Probar otras tareas (primero cafe y luego estado continuo (Juego ver con Armando))
-
-Crear todos los experimentos del coffee task determinista y dejar corriendo.
-
-
-
-
 
 2. Exploracion explotacion (Ver la idea de tener dos epsilon uno para utilziar el modelo y otro para descubir el modelo)
 
@@ -138,16 +137,12 @@ Cosas del código:
 - Graficar las acciones sugeridas por accion para ver cuales son los modelos que mas se estan utilizando
 - De manera general mejorar la visualizacion del proceso. Configurar x11 remoto con grafico
 - Por ahora puse las 4 acciones tal como estaban en el taxi original, pero se podrían agrupar en "move"
-- Añadir informacion del total del pasos al ambiente de manera que pueda detectar la situacion de truncated cuando alcanze el numero maximo de pasos
-- Ver como puedo instalar los ambientes en el proyecto causal-rl desde su propio directorio.
-- Por ahora hice una copia completa para dentro de causal-rl/venv/.... gym/our_gym_environments/ y los registré manualmente
 - Ver como logro correr el ambiente con retroalimentacion visual desde el cliente pycharm en mi maquina del cubo(revisar como lo hice en la casa)
 - En la parte de la inicializacion del dataset con ejemplos sinteticos. Ver si es mejor generar los ejemplos sinteticos solo bajo demanda. Para de esa
 forma minimizar la cantidad necesaria de los mismo y poder extender mas facil a dominios con variables discretas de cardinalidad (n)
 - Ver estrategias de exploracion como ArgMax e Intrinsic Motivation
 - Tener en cuenta el diseño de la funcion de recompenza en amientes de sparse reward the acuerdo al paper
-- Quitar de los posibles estados las pocisiones ocupadas por las paredes horizontales para
-que no inicialize al agente en una de esas posiciones. (Esto no es tan grave ya que si el agente empieza en una de
+- Quitar de los posibles estados las pocisiones ocupadas por las paredes horizontales para que no inicialize al agente en una de esas posiciones. (Esto no es tan grave ya que si el agente empieza en una de
 estas posiciones en pocos movimientos lograra salir de la pared y ya lueog no podrá regresar)
 
 

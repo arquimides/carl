@@ -45,7 +45,7 @@ class DynaQ:
         self.original_action_count = np.zeros((len(self.states), len(self.actions)))
 
         # Creating a dic to count the number of times each action is performed in a given relational state
-        self.relational_action_count = np.zeros((self.relational_states_count, len(self.actions)))
+        self.relational_action_count = np.zeros((len(self.states), len(self.actions)))
 
         self.model = Model(len(self.states), len(self.actions))
 
@@ -102,7 +102,9 @@ class DynaQ:
             elif episode_state_initialization == EpisodeStateInitialization.RANDOM:
                 start_state, _ = self.env.reset(seed = seed)
             elif episode_state_initialization == EpisodeStateInitialization.EPISODE_NUMBER:
-                start_state, _ = self.env.reset(options={'state_index': episode})
+                start_state, _ = self.env.reset(options={'state_index': episode, 'state_type': "original"})
+            elif episode_state_initialization == EpisodeStateInitialization.RELATIONAL_EPISODE_NUMBER:
+                start_state, _ = self.env.reset(options={'state_index': episode, 'state_type': "relational"})
 
             # self.env.render()
             self.states = self.env.states  # Updating the state list in relational representation
@@ -735,7 +737,7 @@ if __name__ == '__main__':
         reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
 
         # Environment Initialization
-        env = gym.make(environment_name, env_type=environment_type, reward_type = reward_type, render_fps=64)
+        env = gym.make(environment_name, render_mode = "none", env_type=environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
         results_folder = "experiments_results"
@@ -832,8 +834,8 @@ if __name__ == '__main__':
                     # elif epsilon_strategy == EpsilonStrategy.FIXED:
                     #     epsilon_values.append(epsilon)
 
-                # Reset the environment before to start
-                env.reset(options={'state_index': 0})
+                # Reset the environment before to start, this can be always original because we are goin to restart again later
+                env.reset(options={'state_index': 0, 'state_type': "original"})
 
                 print("\nStarting algorithm {}. {}".format(a+1, alg_name))
 

@@ -17,6 +17,7 @@ class ActionCountStrategy(Enum):
     Original = "original"
 
 class EpisodeStateInitialization(Enum):
+    RELATIONAL_EPISODE_NUMBER = "relational episode number"
     SAME = 0 #Use 488 for Taxi task
     RANDOM = 1
     EPISODE_NUMBER = "episode number"
@@ -211,7 +212,7 @@ crl_conf_dc = CRLConf("CRL-T60-DC", combination_strategy_6, rl_conf_1.n, rl_conf
                      60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.DC, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 # One time run experiment to make a full exploration to discover the underlying Ground Truths for each action
-exp_coffee_0 = ExpConf("Ground Truth search", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 2000, 100, ActionCountStrategy.Original, True, [crl_conf_go, crl_conf_gu, crl_conf_bc, crl_conf_dc])
+exp_coffee_0 = ExpConf("Ground Truth search", EnvironmentNames.COFFEE, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 2000, 100, ActionCountStrategy.Original, False, [crl_conf_go, crl_conf_gu, crl_conf_bc, crl_conf_dc])
 
 #############################################################################################
 # FIRST experiment to test the advances of our proposed new RLforCD, CD stage against RL,CD #
@@ -389,7 +390,7 @@ exp_coffee_4_4 = ExpConf("CARL T50 vs RL e0.1dec", EnvironmentNames.COFFEE, Envi
 
 
 #############################################################
-#                 TAXI TASK (DETERMINISTIC)                 #
+#                       TAXI TASK                           #
 #############################################################
 
 #############################################################
@@ -398,25 +399,25 @@ exp_coffee_4_4 = ExpConf("CARL T50 vs RL e0.1dec", EnvironmentNames.COFFEE, Envi
 
 # CRL configurations where the combination strategy is always RLforCD, CD, Repeat and ModelDiscoveryStrategy is to perform allways the same action, also each episode start in a different consecutive state to cover all the cases
 crl_conf_south = CRLConf("CRL-T60_SOUTH", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.SOUTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.SOUTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 crl_conf_north = CRLConf("CRL-T60-NORTH", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.NORTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.NORTH, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 crl_conf_east = CRLConf("CRL-T60-EAST", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.EAST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.EAST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 crl_conf_west = CRLConf("CRL-T60-WEST", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.WEST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.WEST, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 crl_conf_pick = CRLConf("CRL-T60-PICK", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.PICK, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.PICK, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 crl_conf_drop = CRLConf("CRL-T60-DROP", combination_strategy_6, rl_conf_1.n, rl_conf_1.alpha, rl_conf_1.gamma, rl_conf_1.epsilon_start, rl_conf_1.epsilon_end,  rl_conf_1.rl_action_selection_strategy, EpisodeStateInitialization.EPISODE_NUMBER,
-                     60, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.DROP, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+                     1000, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.DROP, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
 # One time run experiment to make a full exploration to discover the underlying Ground Truths for each action
-exp_taxi_small_0 = ExpConf("Ground Truth search", EnvironmentNames.TAXI_SMALL, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 10000, 5, ActionCountStrategy.Original, True, [crl_conf_pick, crl_conf_drop])
+exp_taxi_small_0 = ExpConf("Ground Truth search", EnvironmentNames.TAXI_SMALL, EnvironmentType.STOCHASTIC, 1, 10, EvaluationMetric.EPISODE_REWARD, 100000, 1, ActionCountStrategy.Original, False, [crl_conf_south, crl_conf_north, crl_conf_east, crl_conf_west, crl_conf_pick, crl_conf_drop])
 
 
 #############################################################

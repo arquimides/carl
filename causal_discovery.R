@@ -58,7 +58,7 @@ tt2_south_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][rewa
 tt2_north_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
 tt2_east_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
 tt2_west_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI][lJ|lI:nwI][nwJ|nwI][reward|nwI:nwJ]")
-tt2_pick_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:wpJ:lI]")
+tt2_pick_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:lI]")
 tt2_drop_dbn <- model2network("[wpI][lI][nwI][wpJ|wpI:lI][lJ|lI][nwJ|nwI][reward|wpI:wpJ:lI]")
 tt2_gt_models <- list("south" = tt2_south_dbn,"north" = tt2_north_dbn, "east" = tt2_east_dbn, "west" = tt2_west_dbn, "pick" = tt2_pick_dbn, "drop" = tt2_drop_dbn)
 tt2_actions <- c("south","north","east","west","pick","drop")
@@ -273,7 +273,9 @@ causal_discovery_using_rl_data <- function(environment_name, environment_type, d
       gT <- as.graphNEL(ground_truth_model)
       sg0 <- list(graph = subGraph(params$t0.nodes, gT), cluster = TRUE)
       sg1<- list(graph = subGraph(params$t1.nodes, gT), cluster = TRUE)
-      gT <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1))
+      if (environment_type == "deterministic"){
+        gT <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1))
+      }
       if (environment_type == "stochastic"){
         sg2<- list(graph = subGraph(params$t2.nodes, gT), cluster = TRUE)
         gT <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg0,sg1,sg2))
@@ -284,10 +286,12 @@ causal_discovery_using_rl_data <- function(environment_name, environment_type, d
       gR <- graphs[[2]]
       sg3 <- list(graph = subGraph(params$t0.nodes, gR), cluster = TRUE)
       sg4<- list(graph = subGraph(params$t1.nodes, gR), cluster = TRUE)
-      gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4))
+      if (environment_type == "deterministic"){
+        gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4))
+      }
       if (environment_type == "stochastic"){
             sg5<- list(graph = subGraph(params$t2.nodes, gR), cluster = TRUE)
-            gR <- layoutGraph(gT, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4,sg5))
+            gR <- layoutGraph(gR, attrs = list(graph = list(rankdir = "LR")), subGList = list(sg3,sg4,sg5))
       }
 
       tp_arc <- vector()

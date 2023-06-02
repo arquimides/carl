@@ -77,7 +77,7 @@ tt2_bl <- rbind(tt2_bl, tiers2blacklist(list(tt2_t1.nodes,tt2_t2.nodes)))
 task_parameters <- list("CoffeeTaskEnv" = list("deterministic" = (list("gt_models" = ct_gt_models, "actions" = ct_actions, "V" = ct_V, "t0.nodes" = ct_t0.nodes, "t1.nodes" = ct_t1.nodes, "bl" = ct_bl)),
                                                "stochastic" = (list("gt_models" = ct2_gt_models, "actions" = ct2_actions, "V" = ct2_V, "t0.nodes" = ct2_t0.nodes, "t1.nodes" = ct2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = ct2_bl))
                                                                       ),
-                       "TaxiBig"    = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
+                       "TaxiBigEnv"    = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
                                            "stochastic" = (list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = tt2_bl))
                                                                    ),
                        "TaxiSmallEnv"   = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),

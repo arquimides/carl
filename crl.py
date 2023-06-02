@@ -19,8 +19,6 @@ load_model_function_r = ro.globalenv['load_model']
 dbn_inference_function_r = ro.globalenv['dbn_inference']
 plot_gt_funtion_r = ro.globalenv['plot_ground_truths']
 
-min_frequency = 10
-
 
 class DynaQ:
 
@@ -96,15 +94,15 @@ class DynaQ:
                 random_initial_states = None
 
             if random_initial_states is not None:
-                start_state, _ = self.env.reset(options={'state_index': random_initial_states[initial_epsilon_index + episode]})
+                start_state, _ = self.env.reset(options={'state_index': random_initial_states[initial_epsilon_index + episode], 'state_type': "original"})
             elif episode_state_initialization == EpisodeStateInitialization.SAME:
-                start_state, _ = self.env.reset(options={'state_index': episode_state_initialization.value})
+                start_state, _ = self.env.reset(options={'state_index': episode_state_initialization.value, 'state_type': "original"})
             elif episode_state_initialization == EpisodeStateInitialization.RANDOM:
                 start_state, _ = self.env.reset(seed = seed)
             elif episode_state_initialization == EpisodeStateInitialization.EPISODE_NUMBER:
-                start_state, _ = self.env.reset(options={'state_index': episode, 'state_type': "original"})
+                start_state, _ = self.env.reset(options={'state_index': initial_epsilon_index + episode, 'state_type': "original"})
             elif episode_state_initialization == EpisodeStateInitialization.RELATIONAL_EPISODE_NUMBER:
-                start_state, _ = self.env.reset(options={'state_index': episode, 'state_type': "relational"})
+                start_state, _ = self.env.reset(options={'state_index': initial_epsilon_index + episode, 'state_type': "original"})
 
             # self.env.render()
             self.states = self.env.states  # Updating the state list in relational representation
@@ -344,11 +342,6 @@ class DynaQ:
                 self.planning()
 
                 # Set state for next loop. NOT NECESSARY ANY MORE
-                # current_state = next_state
-                # if episode >= 1750:
-                #       self.env.render(info={'episode_number': str(episode), 'step_number': str(steps), "reward": str(cumulative_reward)})
-
-                #sys.stdout.flush()
 
             # Add the corresponding evaluation metric for later plotting
             if evaluation_metric == EvaluationMetric.EPISODE_REWARD:
@@ -698,7 +691,8 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    experiments_to_run = [config.exp_taxi_small_0]
+    #experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4]
+    experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4
 
     # RL for CD vs RL
     # experiments_to_run = [config.exp_coffee_1_1, config.exp_coffee_1_2, config.exp_coffee_1_3, config.exp_coffee_1_4]
@@ -740,7 +734,7 @@ if __name__ == '__main__':
         env = gym.make(environment_name, render_mode = "none", env_type=environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
-        results_folder = "experiments_results"
+        results_folder = "0-CoffeeTask"
         # Sub folders
         rl_result_folder = "rl_results"
         causal_discovery_data_folder = "cd_data_and_results"
@@ -817,6 +811,7 @@ if __name__ == '__main__':
                     threshold = algorithm.th
                     model_use_strategy = algorithm.model_use_strategy
                     model_discovery_strategy = algorithm.model_discovery_strategy
+                    min_frequency = algorithm.min_frequency
                     crl_action_selection_strategy = algorithm.crl_action_selection_strategy
                     use_crl_data = algorithm.use_crl_data
                     model_init_path = algorithm.model_init_path

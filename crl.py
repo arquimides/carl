@@ -691,36 +691,8 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    #experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4]
-    experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4
-
-    # RL for CD vs RL
-    # experiments_to_run = [config.exp_coffee_1_1, config.exp_coffee_1_2, config.exp_coffee_1_3, config.exp_coffee_1_4]
-
-    # CARL vs RL
-    #experiments_to_run = [config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4]
-
-    # CARL vs RL at different T. For Appendix
-    #experiments_to_run = [config.exp_taxi_small_3_1, config.exp_taxi_small_3_2, config.exp_taxi_small_3_3, config.exp_taxi_small_3_4]
-
-    # Discover once, use forever
-    #experiments_to_run = [config.exp_taxi_small_4_1, config.exp_taxi_small_4_2, config.exp_taxi_small_4_3, config.exp_taxi_small_4_4]
-
-    # Transfer Learning
-    # experiments_to_run = [config.exp_taxi_big_1_1]
-
-    # ALL FOR THE COFFEE
-    # experiments_to_run = [config.exp_coffee_1_1, config.exp_coffee_1_2, config.exp_coffee_1_3, config.exp_coffee_1_4,
-    #                       config.exp_coffee_2_1, config.exp_coffee_2_2, config.exp_coffee_2_3, config.exp_coffee_2_4,
-    #                       config.exp_coffee_3_1, config.exp_coffee_3_2, config.exp_coffee_3_3, config.exp_coffee_3_4,
-    #                       config.exp_coffee_4_1, config.exp_coffee_4_2, config.exp_coffee_4_3, config.exp_coffee_4_4]
-
-    # ALL FOR THE TAXI
-    # experiments_to_run = [config.exp_taxi_small_1_1, config.exp_taxi_small_1_2, config.exp_taxi_small_1_3, config.exp_taxi_small_1_4,
-    #                       config.exp_taxi_small_2_1, config.exp_taxi_small_2_2, config.exp_taxi_small_2_3, config.exp_taxi_small_2_4,
-    #                       config.exp_taxi_small_3_1, config.exp_taxi_small_3_2, config.exp_taxi_small_3_3, config.exp_taxi_small_3_4,
-    #                       config.exp_taxi_small_4_1, config.exp_taxi_small_4_2, config.exp_taxi_small_4_3, config.exp_taxi_small_4_4,
-    #                       config.exp_taxi_big_1_1]
+    #experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4 + config.exp_taxi_small_1 + config.exp_taxi_small_2 + config.exp_taxi_small_3 + config.exp_taxi_small_4 + config.exp_taxi_big_1
+    experiments_to_run = config.exp_coffee_1
 
     for experiment_conf in experiments_to_run:
 
@@ -731,10 +703,10 @@ if __name__ == '__main__':
         reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
 
         # Environment Initialization
-        env = gym.make(environment_name, render_mode = "none", env_type=environment_type, reward_type = reward_type, render_fps=64)
+        env = gym.make(environment_name, render_mode = "none", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
-        results_folder = "0-CoffeeTask"
+        results_folder = "1-Trial"
         # Sub folders
         rl_result_folder = "rl_results"
         causal_discovery_data_folder = "cd_data_and_results"

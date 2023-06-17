@@ -1,5 +1,9 @@
 TODO LIST (contraseña IJAR: oeazfmpmmIJAR2023)
 
+0. Probar con el F1 score en lugar de la SHD para medir el causal discovery
+0. Para medir la calidad el modelo pudiera calcular la perdida como la diferencia entre el estado predecido y el real
+0. Tambien pudiera probar la metrica de Regret en lugar de cumulative reward para la politica.
+
 1. Volver a correr todos los experimentos con la nueva forma de recomepenza y en ambientes estocasticos y deterministas
 
 0. Cambiar la estrategia de PGM para que haga descubrimiento cada T episodios siempre y ver si e

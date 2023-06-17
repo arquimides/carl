@@ -235,7 +235,7 @@ causal_discovery_using_rl_data <- function(environment_name, environment_type, d
 
      # Learn the models using the blacklist and highclimbing algorithm
      #  if(CD_posible){ # Por ahora siempre va a ser posible el descubrimiento por la inicializacion de los datos
-        learned <- hc(Data,blacklist = params$bl)
+        learned <- tabu(Data,blacklist = params$bl)
         fitted <- bn.fit(learned,Data)
         write.net(paste(data_set_path,action_name,".net", sep=""), fitted)
       # }else{
@@ -264,6 +264,11 @@ causal_discovery_using_rl_data <- function(environment_name, environment_type, d
       tp <- comparisson[[1]]
       fp <- comparisson[[2]]
       fn <- comparisson[[3]]
+
+      # precision = dim(tp)[1]/(dim(tp)[1] + dim(fp)[1])
+      # recall =  dim(tp)[1]/(dim(tp)[1] + dim(fn)[1])
+      # f1 <- (2 * precision * recall)/(precision + recall)
+      # dist <-  f1
 
       jpeg(paste(data_set_path,action_name,".jpg", sep=""), width = 1920, height = 1080)
       par(mfrow = c(1, 2))
@@ -328,4 +333,4 @@ causal_discovery_using_rl_data <- function(environment_name, environment_type, d
 # p <- plot_ground_truths("CoffeeTaskEnv","stochastic", "D:/000-Code/Python/carl/ground_truth_models/our_gym_environments/CoffeeTaskEnv-v0")
 # d <- dbn_inference("CoffeeTaskEnv", "deterministic", c(0,0,0,0,0),"D:/000-Code/Python/carl/experiments_results/Deterministic Ground Truths Coffee Task/trial 1/cd_data_and_results/CRL-T60_GO/0_10/1980/go.net")
 # d <- dbn_inference("OurTaxi2Env", c(1,2,5),"D:/000-Code/Python/causal_rl/experiments_results/20221108 103846 OurTaxi2Env T = 200 E = 1000 t = 0.7 trials = 1/trial 1/cd_data/0_37/200/pick.net")
-# causal_discovery_using_rl_data("OurTaxiEnv","/home/kimo/PycharmProjects/causal_rl/experiments_results/20221021 104042 OurTaxiEnv T = 200 E = 1000 t = 0.7 trials = 1/trial 1/cd_data/0_37/200/", "pick")
+# causal_discovery_using_rl_data("TaxiSmallEnv","deterministic","/home/kimo/PycharmProjects/carl/20-TaxiTask/20230606 180210 TaxiSmallEnv-deterministic RL vs RLforCD T20 Epi = 1000 steps = 50 ace = relational sis = True trials 1/trial 1/cd_data_and_results/CARL agent/0_98/20/", "pick")

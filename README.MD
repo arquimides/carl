@@ -1,12 +1,11 @@
 # causal_rl
 
-This is the code repository to run the experiments for the under-review article "Carl: A Synergistic Framework for Causal Reinforcement Learning". You can download the paper [here](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4409869) at SSRN.
+This is the code repository to run the experiments for the under-review article "Carl: A Synergistic Framework for Causal Reinforcement Learning". 
 
-## Citation
-
-For early citation, please use:
-
-Méndez-Molina, Arquímides and Morales, Eduardo and L. Enrique, Sucar, Carl: A Synergistic Framework for Causal Reinforcement Learning. Available at SSRN: https://ssrn.com/abstract=4409869 or http://dx.doi.org/10.2139/ssrn.4409869
+<!-- You can download the paper [here](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4409869) at SSRN.
+ ## Citation
+ For early citation, please use:
+ Méndez-Molina, Arquímides and Morales, Eduardo and L. Enrique, Sucar, Carl: A Synergistic Framework for Causal Reinforcement Learning. Available at SSRN: # https://ssrn.com/abstract=4409869 or http://dx.doi.org/10.2139/ssrn.4409869 -->
 
 ## Installation
 

@@ -29,7 +29,7 @@ BiocManager::install("Rgraphviz")
 
 ## Usage
 
-To run all experiments in the paper, just run the `crl.py` script. You can manually edit the desired experiments to run by modifying the script in lines form 592 to 611. To modify any parameter of any experiment you need to modify the `config.py` file inside the "experiments_configurations" folder.
+To run all experiments in the paper, just run the `crl.py` script. You can manually edit the desired experiments to run by modifying the script in line 695. To modify any parameter of any experiment you need to modify the `config.py` file inside the "experiments_configurations" folder.
 
 
 ## Examples outputs

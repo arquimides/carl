@@ -692,7 +692,9 @@ if __name__ == '__main__':
 
     # Single test
     #experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4 + config.exp_taxi_small_1 + config.exp_taxi_small_2 + config.exp_taxi_small_3 + config.exp_taxi_small_4 + config.exp_taxi_big_1
-    experiments_to_run = config.exp_coffee_1
+
+    # ya puedo dejar corriendo el taxi small 2 con 10 trials, parece que da bien.
+    experiments_to_run =config.exp_taxi_small_1 + config.exp_coffee_1
 
     for experiment_conf in experiments_to_run:
 
@@ -706,7 +708,7 @@ if __name__ == '__main__':
         env = gym.make(environment_name, render_mode = "none", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
-        results_folder = "1-Trial"
+        results_folder = "STOCHASTIC"
         # Sub folders
         rl_result_folder = "rl_results"
         causal_discovery_data_folder = "cd_data_and_results"

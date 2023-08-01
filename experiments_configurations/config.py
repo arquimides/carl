@@ -142,7 +142,7 @@ cycle_stage_1 = Stage([Step.CD, Step.RL_USING_CD, Step.RL], Times.FOREVER)
 cycle_stage_2 = Stage([Step.CD, Step.RL_USING_CD, Step.CD, Step.RL], Times.FOREVER)
 cycle_stage_3 = Stage([Step.RL_USING_CD, Step.CD], Times.FOREVER)
 
-cycle_stage_4 = Stage([Step.RL_USING_CD], Times.FOREVER)
+cycle_stage_4 = Stage([Step.RL_USING_CD, Step.CD], Times.FOREVER)
 cycle_stage_5 = Stage([Step.RL_FOR_CD, Step.CD, Step.RL_USING_CD, Step.CD], Times.FOREVER)
 cycle_stage_6 = Stage([Step.RL, Step.CD], Times.FOREVER)
 cycle_stage_7 = Stage([Step.RL_FOR_CD, Step.CD], Times.FOREVER)
@@ -160,6 +160,7 @@ combination_strategy_5 = CombinationStrategy("Rl, CD forever", [cycle_stage_6])
 combination_strategy_6 = CombinationStrategy("Rl for CD, CD, forever", [cycle_stage_7])
 combination_strategy_7 = CombinationStrategy("RL forever", [cycle_stage_8])
 combination_strategy_8 = CombinationStrategy("RLforCD and then CD and RL using CD forever", [single_stage_3, cycle_stage_9])
+combination_strategy_9 = CombinationStrategy("RL and then CD and RL using CD forever", [single_stage_1, cycle_stage_9])
 
 #############################################################
 #                  RL Configurations                        #
@@ -227,7 +228,7 @@ for env_type in EnvironmentType:
 #############################################################################################
 # The CRL configurations used changes the T parameter, the ModelUseStrategy for RLusingCD stages and the ModelDiscoveryStrategy for RLforCD stages
 
-TRIALS = 1
+TRIALS = 10
 T_VALUES = [10, 20, 30, 60]
 MIN_FREQUENCY = 20
 exp_coffee_1 = []
@@ -250,7 +251,7 @@ for env_type in EnvironmentType:
         carl_conf = CRLConf("CARL T{}".format(T), combination_strategy_1, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
                              T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
         # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
-        experiment = ExpConf("RL vs RLforCD T{}".format(T), EnvironmentNames.COFFEE, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [pgm_conf, carl_conf])
+        experiment = ExpConf("RL vs RLforCD T{}".format(T), EnvironmentNames.COFFEE, env_type, TRIALS, 1, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [pgm_conf, carl_conf])
         exp_coffee_1.append(experiment)
 
 
@@ -259,10 +260,10 @@ for env_type in EnvironmentType:
 ######################################################################################################################
 # We compare our method against different Model-free and Model-based params. We want to test how our method performs in police learning and causal discovery for each settings
 
-TRIALS = 1
+TRIALS = 10
 MIN_FREQUENCY = 20
 exp_coffee_2 = []
-T = 60
+T = 50
 
 for env_type in EnvironmentType:
 
@@ -291,7 +292,7 @@ for env_type in EnvironmentType:
 # Third experiment to show what happens under different values of T  #
 ######################################################################
 
-TRIALS = 1
+TRIALS = 10
 T_VALUES = [10, 20, 40, 60]
 MIN_FREQUENCY = 20
 exp_coffee_3 = []
@@ -328,7 +329,7 @@ for env_type in EnvironmentType:
 TRIALS = 1
 MIN_FREQUENCY = 20
 exp_coffee_4 = []
-T = 60
+T = 50
 
 for env_type in EnvironmentType:
 
@@ -343,13 +344,41 @@ for env_type in EnvironmentType:
 
         model_free_rl = RLConf("Q-Learning", combination_strategy_7, rl_params.n, rl_params.alpha, rl_params.gamma, rl_params.epsilon_start, rl_params.epsilon_end, rl_params.rl_action_selection_strategy, rl_params.episode_state_initialization)
         model_based_rl = RLConf("Dyna Q n20", combination_strategy_7, 20, rl_params.alpha, rl_params.gamma, rl_params.epsilon_start, rl_params.epsilon_end, rl_params.rl_action_selection_strategy, rl_params.episode_state_initialization)
-        pgm_conf = CRLConf("PGM'22 T{}".format(T), combination_strategy_0, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+        pgm_conf = CRLConf("PGM'22 T{}".format(T), combination_strategy_9, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
                            T, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
         carl_conf = CRLConf("CARL T{}".format(T), combination_strategy_8, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
                              T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
         experiment = ExpConf("CARL T{} discover once use forever e{}dec".format(T, crl_params.epsilon_start), EnvironmentNames.COFFEE, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [model_free_rl, model_based_rl, pgm_conf, carl_conf])
         exp_coffee_4.append(experiment)
+
+#######################################################################################################################
+# FIVE EXPERIMENT  #
+#######################################################################################################################
+
+TRIALS = 10
+MIN_FREQUENCY = 20
+exp_coffee_5 = []
+T = 50
+
+for env_type in [EnvironmentType.DETERMINISTIC]:
+
+    if env_type == EnvironmentType.DETERMINISTIC:
+        RL_CONFS = RL_DETERMINISTIC_CONFS
+    elif env_type == EnvironmentType.STOCHASTIC:
+        RL_CONFS = RL_STOCHASTIC_CONFS
+
+    for i in range(len(RL_CONFS)):
+        rl_params = RL_CONFS[i]
+        crl_params = RL_CONFS[i]
+
+        carl_conf_1 = CRLConf("CARL T{} C_1".format(T), combination_strategy_1, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+                             T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+        carl_conf_2 = CRLConf("CARL T{} C_2".format(T), combination_strategy_9, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+                             T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+        experiment = ExpConf("CARL T{} using C1 vs C2 e{}dec".format(T, crl_params.epsilon_start), EnvironmentNames.COFFEE, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 600, 25, ActionCountStrategy.Original, True, [carl_conf_1, carl_conf_2])
+        exp_coffee_5.append(experiment)
 
 
 
@@ -420,7 +449,7 @@ for env_type in EnvironmentType:
 #############################################################################################
 # The CRL configurations used changes the T parameter, the ModelUseStrategy for RLusingCD stages and the ModelDiscoveryStrategy for RLforCD stages
 
-TRIALS = 1
+TRIALS = 10
 T_VALUES = [10, 20, 50, 100]
 MIN_FREQUENCY = 20
 exp_taxi_small_1 = []
@@ -452,13 +481,12 @@ for env_type in EnvironmentType:
 # SECOND experiment to show the advances of our proposed combination strategy against model free and model based RL #
 #####################################################################################################################
 # We compare our method against different Model-free and Model-based params. We want to test how our method performs in police learning and causal discovery for each settings
-TRIALS = 1
+TRIALS = 10
 MIN_FREQUENCY = 20
-exp_coffee_2 = []
 T = 50
 exp_taxi_small_2 = []
 
-for env_type in EnvironmentType:
+for env_type in [EnvironmentType.STOCHASTIC]:
 
     if env_type == EnvironmentType.DETERMINISTIC:
         RL_CONFS = RL_DETERMINISTIC_CONFS
@@ -485,7 +513,7 @@ for env_type in EnvironmentType:
 # Third experiment to show what happens under different values of T  #
 ######################################################################
 
-TRIALS = 1
+TRIALS = 10
 T_VALUES = [10, 20, 100, 150]
 MIN_FREQUENCY = 20
 exp_taxi_small_3 = []
@@ -537,13 +565,42 @@ for env_type in EnvironmentType:
 
         model_free_rl = RLConf("Q-Learning", combination_strategy_7, rl_params.n, rl_params.alpha, rl_params.gamma, rl_params.epsilon_start, rl_params.epsilon_end, rl_params.rl_action_selection_strategy, rl_params.episode_state_initialization)
         model_based_rl = RLConf("Dyna Q n20", combination_strategy_7, 20, rl_params.alpha, rl_params.gamma, rl_params.epsilon_start, rl_params.epsilon_end, rl_params.rl_action_selection_strategy, rl_params.episode_state_initialization)
-        pgm_conf = CRLConf("PGM'22 T{}".format(T), combination_strategy_8, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+        pgm_conf = CRLConf("PGM'22 T{}".format(T), combination_strategy_9, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
                            T, 0.7, ModelUseStrategy.IMMEDIATE_POSITIVE, ModelDiscoveryStrategy.EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
         carl_conf = CRLConf("CARL T{}".format(T), combination_strategy_8, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
                              T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
 
         experiment = ExpConf("CARL T{} discover once use forever e{}dec".format(T, crl_params.epsilon_start), EnvironmentNames.TAXI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 1000, 50, ActionCountStrategy.Relational, True, [model_free_rl, model_based_rl, pgm_conf, carl_conf])
         exp_taxi_small_4.append(experiment)
+
+#######################################################################################################################
+# FIVE EXPERIMENT  #
+#######################################################################################################################
+
+TRIALS = 10
+MIN_FREQUENCY = 20
+exp_taxi_small_5 = []
+T = 50
+
+for env_type in [EnvironmentType.DETERMINISTIC]:
+
+    if env_type == EnvironmentType.DETERMINISTIC:
+        RL_CONFS = RL_DETERMINISTIC_CONFS
+    elif env_type == EnvironmentType.STOCHASTIC:
+        RL_CONFS = RL_STOCHASTIC_CONFS
+
+    for i in range(len(RL_CONFS)):
+        rl_params = RL_CONFS[i]
+        crl_params = RL_CONFS[i]
+
+        carl_conf_1 = CRLConf("CARL T{} C_1".format(T), combination_strategy_1, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+                              T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+        carl_conf_2 = CRLConf("CARL T{} C_2".format(T), combination_strategy_9, crl_params.n, crl_params.alpha, crl_params.gamma, crl_params.epsilon_start, crl_params.epsilon_end, crl_params.rl_action_selection_strategy, crl_params.episode_state_initialization,
+                              T, 0.7, ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE, ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY, MIN_FREQUENCY, ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, True, None)
+
+        experiment = ExpConf("CARL T{} using C1 vs C2 e{}dec".format(T, crl_params.epsilon_start), EnvironmentNames.TAXI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD,
+                             1000, 50, ActionCountStrategy.Original, True, [carl_conf_1, carl_conf_2])
+        exp_taxi_small_5.append(experiment)
 
 
 #############################################################
@@ -559,7 +616,7 @@ for env_type in EnvironmentType:
 TRIALS = 1
 MIN_FREQUENCY = 20
 exp_taxi_big_1 = []
-T = 2500
+T = 50
 
 MODELS_PATH = {EnvironmentType.DETERMINISTIC: {
                    "25":  "1-TaxiTask/20230605 130343 TaxiSmallEnv-deterministic RL vs RLforCD T10 Epi = 1000 steps = 50 ace = relational sis = True trials 1/trial 1/cd_data_and_results/CARL agent/0_99/10/",

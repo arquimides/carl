@@ -4,6 +4,7 @@ class EnvironmentNames(Enum):
     COFFEE = "our_gym_environments/CoffeeTaskEnv-v0"
     TAXI_SMALL = "our_gym_environments/TaxiSmallEnv-v0"
     TAXI_BIG = "our_gym_environments/TaxiBigEnv-v0"
+    ATARI_TAXI_SMALL = "our_gym_environments/AtariTaxiSmallEnv-v0"
 
 class EnvironmentType(Enum):
     STOCHASTIC = "stochastic"
@@ -891,3 +892,19 @@ for env_type in EnvironmentType:
             # ExpConf(exp_name, env_name, env_type, trials, smooth, evaluation_metric, max_episodes, max_steps, alg_confs):
             experiment = ExpConf("CARL T{} vs RL e{}dec f{}".format(T, crl_params.epsilon_start, f), EnvironmentNames.TAXI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 1000, 50, ActionCountStrategy.Relational, True, [model_free_rl, carl_conf])
             exp_taxi_small_extra_4.append(experiment)
+
+
+#############################################################
+#                DEEP-RL with CARL experiments              #
+#############################################################
+
+TRIALS = 1
+exp_deep_rl_1 = []
+
+
+for env_type in EnvironmentType:
+
+    experiment = ExpConf("CARL T{} vs RL e{}dec f{}".format(T, crl_params.epsilon_start, f), EnvironmentNames.ATARI_TAXI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 1000, 50, ActionCountStrategy.Relational, True, [model_free_rl, carl_conf])
+
+    exp_deep_rl_1.append(experiment)
+

@@ -690,10 +690,10 @@ class Model:
 if __name__ == '__main__':
 
     # Single test
-    #experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4 + config.exp_taxi_small_1 + config.exp_taxi_small_2 + config.exp_taxi_small_3 + config.exp_taxi_small_4 + config.exp_taxi_big_1
+    experiments_to_run = config.exp_deep_rl_1
 
-    # ya puedo dejar corriendo el taxi small 2 con 10 trials, parece que da bien.
-    experiments_to_run = config.exp_taxi_small_1
+    # Multiple test
+    # experiments_to_run = config.exp_coffee_1 + config.exp_coffee_2 + config.exp_coffee_3 + config.exp_coffee_4 + config.exp_taxi_small_1 + config.exp_taxi_small_2 + config.exp_taxi_small_3 + config.exp_taxi_small_4 + config.exp_taxi_big_1
 
     for experiment_conf in experiments_to_run:
 

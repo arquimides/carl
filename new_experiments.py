@@ -222,14 +222,6 @@ def experiment():
     arg_alg.add_argument("--confidence-threshold", type=float, default=0.7,
                          help='Confidence value used in the RL-USING-CD stages')
 
-    arg_net.add_argument("--optimizer",
-                         choices=['adadelta',
-                                  'adam',
-                                  'rmsprop',
-                                  'rmspropcentered'],
-                         default='adam',
-                         help='Name of the optimizer to use.')
-
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument('--use-cuda', action='store_true',
                            help='Flag specifying whether to use the GPU.')

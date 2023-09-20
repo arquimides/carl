@@ -4,7 +4,7 @@ class EnvironmentNames(Enum):
     COFFEE = "our_gym_environments/CoffeeTaskEnv-v0"
     TAXI_SMALL = "our_gym_environments/TaxiSmallEnv-v0"
     TAXI_BIG = "our_gym_environments/TaxiBigEnv-v0"
-    ATARI_TAXI_SMALL = "our_gym_environments/AtariTaxiSmallEnv-v0"
+    TAXI_ATARI_SMALL = "our_gym_environments/TaxiAtariSmallEnv-v0"
 
 class EnvironmentType(Enum):
     STOCHASTIC = "stochastic"
@@ -86,6 +86,71 @@ class AlgConf:
     def __init__(self, alg_name, combination_strategy):
         self.alg_name = alg_name
         self.combination_strategy = combination_strategy
+
+
+class DeepRLConf(AlgConf):
+    def __init__(self, alg_name, combination_strategy, screen_width=84, screen_height=84,
+                 initial_replay_size=50000, max_replay_size=500000, prioritized=False,
+                 optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
+                 algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
+                 target_update_frequency=10000, evaluation_frequency=250000, train_frequency=4,
+                 max_steps=50000000, final_exploration_frame=1000000, initial_exploration_rate=1.0,
+                 final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
+                 max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
+                 n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
+                 stage_duration=30000, frequency_value=30, confidence_threshold=0.7,
+                 use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False):
+
+        super().__init__(alg_name, combination_strategy)
+        self.screen_width = screen_width  # Width of the game screen
+        self.screen_height = screen_height  # Height of the game screen
+
+        # Replay Memory
+        self.initial_replay_size = initial_replay_size  # Initial size of the replay memory
+        self.max_replay_size = max_replay_size  # Max size of the replay memory
+        self.prioritized = prioritized  # Whether to use prioritized memory or not
+
+        # Deep Q-Network
+        self.optimizer = optimizer  # Name of the optimizer to use
+        self.learning_rate = learning_rate  # Learning rate value of the optimizer
+        self.decay = decay  # Discount factor for the history coming from the gradient momentum
+        self.epsilon = epsilon  # Epsilon term used in optimizer
+
+        # Algorithm
+        self.algorithm = algorithm  # Name of the algorithm
+        self.n_approximators = n_approximators  # Number of approximators used
+        self.batch_size = batch_size  # Batch size for each fit of the network
+        self.history_length = history_length  # Number of frames composing a state
+        self.target_update_frequency = target_update_frequency  # Frequency of target network update
+        self.evaluation_frequency = evaluation_frequency  # Frequency of evaluation
+        self.train_frequency = train_frequency  # Frequency of network training
+        self.max_steps = max_steps  # Total number of collected samples
+        self.final_exploration_frame = final_exploration_frame  # Number of samples for exploration rate decay
+        self.initial_exploration_rate = initial_exploration_rate  # Initial exploration rate
+        self.final_exploration_rate = final_exploration_rate  # Final exploration rate
+        self.test_exploration_rate = test_exploration_rate  # Exploration rate during evaluation
+        self.test_samples = test_samples  # Number of collected samples for each evaluation
+        self.max_no_op_actions = max_no_op_actions  # Maximum number of no-op actions at the beginning of episodes
+        self.alpha_coeff = alpha_coeff  # Prioritization exponent
+        self.n_atoms = n_atoms  # Number of atoms for Categorical DQN
+        self.v_min = v_min  # Minimum action-value for Categorical DQN
+        self.v_max = v_max  # Maximum action-value for Categorical DQN
+        self.n_quantiles = n_quantiles  # Number of quantiles for Quantile Regression DQN
+        self.n_steps_return = n_steps_return  # Number of steps for n-step return for Rainbow
+        self.sigma_coeff = sigma_coeff  # Sigma0 coefficient for noise initialization
+
+        # CARL related
+        self.stage_duration = stage_duration  # Maximum number of steps in a stage
+        self.frequency_value = frequency_value  # Number of times an action needs to be performed in a state
+        self.confidence_threshold = confidence_threshold  # Confidence threshold in RL-USING-CD stages
+
+        # Util
+        self.use_cuda = use_cuda  # Flag specifying whether to use the GPU
+        self.save = save  # Flag specifying whether to save the model
+        self.load_path = load_path  # Path of the model to be loaded
+        self.render = render  # Flag specifying whether to render the game
+        self.quiet = quiet  # Flag specifying whether to hide the progress bar
+        self.debug = debug  # Flag specifying whether the script runs in debug mode
 
 class RLConf(AlgConf):
     def __init__(self, alg_name, combination_strategy, n, alpha, gamma, epsilon_start, epsilon_end, rl_action_selection_strategy, episode_state_initialization):
@@ -901,10 +966,35 @@ for env_type in EnvironmentType:
 TRIALS = 1
 exp_deep_rl_1 = []
 
+for env_type in [EnvironmentType.DETERMINISTIC]:
 
-for env_type in EnvironmentType:
+    # Here we use the combination strategy RL for all episodes, algorithm param is 'dqn'
+    dqn_conf = DeepRLConf("DQN", combination_strategy=combination_strategy_7, screen_width=84, screen_height=84,
+                 initial_replay_size=50000, max_replay_size=500000, prioritized=False,
+                 optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
+                 algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
+                 target_update_frequency=10000, evaluation_frequency=250000, train_frequency=4,
+                 max_steps=50000000, final_exploration_frame=1000000, initial_exploration_rate=1.0,
+                 final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
+                 max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
+                 n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
+                 stage_duration=50000000, frequency_value=30, confidence_threshold=0.7,
+                 use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False)
 
-    experiment = ExpConf("CARL T{} vs RL e{}dec f{}".format(T, crl_params.epsilon_start, f), EnvironmentNames.ATARI_TAXI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 1000, 50, ActionCountStrategy.Relational, True, [model_free_rl, carl_conf])
+    # Here we use the combination strategy 'Discover once, use forever'
+    carl_dqn_conf = DeepRLConf("DQN", combination_strategy=combination_strategy_8, screen_width=84, screen_height=84,
+                 initial_replay_size=50000, max_replay_size=500000, prioritized=False,
+                 optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
+                 algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
+                 target_update_frequency=10000, evaluation_frequency=250000, train_frequency=4,
+                 max_steps=50000000, final_exploration_frame=1000000, initial_exploration_rate=1.0,
+                 final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
+                 max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
+                 n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
+                 stage_duration=50000000, frequency_value=30, confidence_threshold=0.7,
+                 use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False)
+
+    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 50000000, 10000, ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf])
 
     exp_deep_rl_1.append(experiment)
 

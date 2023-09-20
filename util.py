@@ -12,6 +12,21 @@ export_formats = ["pdf", "svg", "png"]
 font_size = 16
 legend_item_size = 13
 
+from mushroom_rl.utils.dataset import compute_metrics
+
+
+def print_epoch(epoch, logger):
+    logger.info('################################################################')
+    logger.info('Epoch: %d' % epoch)
+    logger.info('----------------------------------------------------------------')
+
+
+def get_stats(dataset, logger):
+    score = compute_metrics(dataset)
+    logger.info(('min_reward: %f, max_reward: %f, mean_reward: %f,'
+                ' median_reward: %f, games_completed: %d' % score))
+
+    return score
 
 def multi_plot_data(names, mean_data, std_data, folder, fig_name, y_name, x_name, legend_locs, x_fixed, episode_stage,
                     epsilon_values, legend_titles):

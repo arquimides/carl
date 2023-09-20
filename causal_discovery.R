@@ -82,6 +82,9 @@ task_parameters <- list("CoffeeTaskEnv" = list("deterministic" = (list("gt_model
                                                                    ),
                        "TaxiSmallEnv"   = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
                                                "stochastic" = (list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = tt2_bl))
+                                                                      ),
+                       "TaxiAtariSmallEnv"   = list("deterministic" = (list("gt_models" = tt_gt_models, "actions" = tt_actions, "V" = tt_V, "t0.nodes" = tt_t0.nodes, "t1.nodes" = tt_t1.nodes, "bl" = tt_bl)),
+                                               "stochastic" = (list("gt_models" = tt2_gt_models, "actions" = tt2_actions, "V" = tt2_V, "t0.nodes" = tt2_t0.nodes, "t1.nodes" = tt2_t1.nodes, "t2.nodes" = ct2_t2.nodes, "bl" = tt2_bl))
                                                                       )
                        )
 

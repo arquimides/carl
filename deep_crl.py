@@ -19,38 +19,356 @@ load_model_function_r = ro.globalenv['load_model']
 dbn_inference_function_r = ro.globalenv['dbn_inference']
 plot_gt_funtion_r = ro.globalenv['plot_ground_truths']
 
-class DynaQ:
+# Imports for Deep-RL
+import argparse
+import datetime
+import pathlib
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
 
-    def __init__(self, env, n, alpha, gamma, epsilon_values, max_steps):
+from mushroom_rl.algorithms.value import AveragedDQN, CategoricalDQN, DQN,\
+    DoubleDQN, MaxminDQN, DuelingDQN, NoisyDQN, QuantileDQN, Rainbow
+from mushroom_rl.approximators.parametric import TorchApproximator
+from mushroom_rl.core import Core, Logger
+from mushroom_rl.environments import *
+from mushroom_rl.policy import EpsGreedy
+from mushroom_rl.utils.parameters import LinearParameter, Parameter
+from mushroom_rl.utils.replay_memory import PrioritizedReplayMemory
+
+from atari_gymnasium_wrapper import AtariGymnasiumWrapper
+
+
+class Network(nn.Module):
+    n_features = 512
+
+    def __init__(self, input_shape, output_shape, **kwargs):
+        super().__init__()
+
+        n_input = input_shape[0]
+        n_output = output_shape[0]
+
+        self._h1 = nn.Conv2d(n_input, 32, kernel_size=8, stride=4)
+        self._h2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self._h3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self._h4 = nn.Linear(3136, self.n_features)
+        self._h5 = nn.Linear(self.n_features, n_output)
+
+        nn.init.xavier_uniform_(self._h1.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h2.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h3.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h4.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h5.weight,
+                                gain=nn.init.calculate_gain('linear'))
+
+    def forward(self, state, action=None):
+        h = F.relu(self._h1(state.float() / 255.))
+        h = F.relu(self._h2(h))
+        h = F.relu(self._h3(h))
+        h = F.relu(self._h4(h.view(-1, 3136)))
+        q = self._h5(h)
+
+        if action is None:
+            return q
+        else:
+            q_acted = torch.squeeze(q.gather(1, action.long()))
+
+            return q_acted
+
+
+class FeatureNetwork(nn.Module):
+    def __init__(self, input_shape, output_shape, **kwargs):
+        super().__init__()
+
+        n_input = input_shape[0]
+
+        self._h1 = nn.Conv2d(n_input, 32, kernel_size=8, stride=4)
+        self._h2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self._h3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self._h4 = nn.Linear(3136, Network.n_features)
+
+        nn.init.xavier_uniform_(self._h1.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h2.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h3.weight,
+                                gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self._h4.weight,
+                                gain=nn.init.calculate_gain('relu'))
+
+    def forward(self, state, action=None):
+        h = F.relu(self._h1(state.float() / 255.))
+        h = F.relu(self._h2(h))
+        h = F.relu(self._h3(h))
+        h = F.relu(self._h4(h.view(-1, 3136)))
+
+        return h
+
+
+class DeepCRL:
+    def __init__(self, env, name='our_gym_environments/TaxiAtariSmallEnv-v0', screen_width=84, screen_height=84,
+                 initial_replay_size=50000, max_replay_size=500000, prioritized=False,
+                 optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
+                 algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
+                 target_update_frequency=10000, evaluation_frequency=250000, train_frequency=4,
+                 max_steps=50000000, final_exploration_frame=1000000, initial_exploration_rate=1.0,
+                 final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
+                 max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
+                 n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
+                 stage_duration=30000, frequency_value=30, confidence_threshold=0.7,
+                 use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False):
+
+        # Environment
+        self.name = name  # Gym ID of the Atari game
+        self.screen_width = screen_width  # Width of the game screen
+        self.screen_height = screen_height  # Height of the game screen
 
         self.env = env
         self.states = env.states
         self.actions = env.actions
         self.reward_variable_values = env.reward_variable_values
         self.reward_variable_categories = env.reward_variable_categories
-
-        self.q = np.zeros((len(self.states), len(self.actions)))
-        #self.q = np.full((len(self.states), len(self.actions)), -1.0)
-
         # Counting the number of relational states
         self.relational_states_count = 1
-
         for i in env.state_variables_cardinalities:
             self.relational_states_count *= i
-
         # Creating a dic to count the number of times each action is performed in a given original state
         self.original_action_count = np.zeros((len(self.states), len(self.actions)))
-
         # Creating a dic to count the number of times each action is performed in a given relational state
         self.relational_action_count = np.zeros((len(self.states), len(self.actions)))
 
-        self.model = Model(len(self.states), len(self.actions))
+        # Replay Memory
+        self.initial_replay_size = initial_replay_size  # Initial size of the replay memory
+        self.max_replay_size = max_replay_size  # Max size of the replay memory
+        self.prioritized = prioritized  # Whether to use prioritized memory or not
 
-        self.epsilon_values = epsilon_values
-        self.alpha = alpha
-        self.gamma = gamma
-        self.max_steps = max_steps
-        self.n = n
+        # Deep Q-Network
+        self.optimizer = optimizer  # Name of the optimizer to use
+        self.learning_rate = learning_rate  # Learning rate value of the optimizer
+        self.decay = decay  # Discount factor for the history coming from the gradient momentum
+        self.epsilon = epsilon  # Epsilon term used in optimizer
+
+        # Algorithm
+        self.algorithm = algorithm  # Name of the algorithm
+        self.n_approximators = n_approximators  # Number of approximators used
+        self.batch_size = batch_size  # Batch size for each fit of the network
+        self.history_length = history_length  # Number of frames composing a state
+        self.target_update_frequency = target_update_frequency  # Frequency of target network update
+        self.evaluation_frequency = evaluation_frequency  # Frequency of evaluation
+        self.train_frequency = train_frequency  # Frequency of network training
+        self.max_steps = max_steps  # Total number of collected samples
+        self.final_exploration_frame = final_exploration_frame  # Number of samples for exploration rate decay
+        self.initial_exploration_rate = initial_exploration_rate  # Initial exploration rate
+        self.final_exploration_rate = final_exploration_rate  # Final exploration rate
+        self.test_exploration_rate = test_exploration_rate  # Exploration rate during evaluation
+        self.test_samples = test_samples  # Number of collected samples for each evaluation
+        self.max_no_op_actions = max_no_op_actions  # Maximum number of no-op actions at the beginning of episodes
+        self.alpha_coeff = alpha_coeff  # Prioritization exponent
+        self.n_atoms = n_atoms  # Number of atoms for Categorical DQN
+        self.v_min = v_min  # Minimum action-value for Categorical DQN
+        self.v_max = v_max  # Maximum action-value for Categorical DQN
+        self.n_quantiles = n_quantiles  # Number of quantiles for Quantile Regression DQN
+        self.n_steps_return = n_steps_return  # Number of steps for n-step return for Rainbow
+        self.sigma_coeff = sigma_coeff  # Sigma0 coefficient for noise initialization
+
+        # CARL related
+        self.stage_duration = stage_duration  # Maximum number of steps in a stage
+        self.frequency_value = frequency_value  # Number of times an action needs to be performed in a state
+        self.confidence_threshold = confidence_threshold  # Confidence threshold in RL-USING-CD stages
+
+        # Util
+        self.use_cuda = use_cuda  # Flag specifying whether to use the GPU
+        self.save = save  # Flag specifying whether to save the model
+        self.load_path = load_path  # Path of the model to be loaded
+        self.render = render  # Flag specifying whether to render the game
+        self.quiet = quiet  # Flag specifying whether to hide the progress bar
+        self.debug = debug  # Flag specifying whether the script runs in debug mode
+
+    def crl_learn(self, max_ep, random_initial_states):
+
+        episode_reward = []  # cumulative reward
+        steps_per_episode = []  # steps per episodes
+        actions_by_model_count_list = []
+        good_actions_by_model_count_list = []
+        episode_stage = []  # to store the corresponding stage on each episode
+
+        # SHD distances to measure the performance of Causal Discovery
+        shd_distances = {}
+
+        # To save RL data for all interest variables
+        data_set = {}
+        for action_name in self.env.actions:
+            data_set[action_name] = {"all_states_i": [], "all_states_j": [], "all_rewards": []}
+            shd_distances[action_name] = []  # Just initializing
+
+        # Initialize data_set with synthetic examples for all actions
+        # First, find the variable with higher cardinality and add one row with each possible value for that variable.
+        # Then fill the table for the other variables using the corresponding value % cardinality(other variable)
+        levels_variables = self.env.state_variables_cardinalities
+        max_level_value = max(levels_variables)
+        variables_count = len(levels_variables)
+
+        max_value = max(max_level_value, self.env.reward_variable_cardinality)
+
+        synthetic_values = []
+
+        for i in range(max_value):
+            row = []
+            for j in range(variables_count):
+                value = i % levels_variables[j]
+                row.append(value)
+            synthetic_values.append(row)
+
+        for action in data_set.keys():
+            for i in range(len(synthetic_values)):
+                data_set[action]['all_states_i'].append(synthetic_values[i])
+                data_set[action]['all_states_j'].append(synthetic_values[i])
+                data_set[action]['all_rewards'].append(i % self.env.reward_variable_cardinality)
+
+        actual_episodes = 0
+        maximum_episodes_reached = False
+        causal_models = None
+
+        for stage in combination_strategy.stages:
+
+            stage_times = stage.times
+
+            while True and not maximum_episodes_reached:
+                steps = stage.steps
+                for step in steps:
+
+                    step_length_in_episodes = 0 # This is the default length for CD and Model Init
+
+                    if step == Step.MODEL_INIT:
+                        sys.stdout.write("\rEpisode {}. Loading models for CM initialization".format(actual_episodes))
+                        sys.stdout.flush()
+                        #print("Loading models for CM initialization")
+                        episode_stage.append((Step.MODEL_INIT.value, actual_episodes, actual_episodes))
+                        causal_models, structural_distances = self.causal_discovery_using_rl_data(
+                            model_init_path)
+
+                    elif step == Step.CD:
+                        sys.stdout.write("\rEpisode {}. Learning CMs using RL data".format(actual_episodes))
+                        #print("Learning CMs using RL data")
+                        episode_stage.append((Step.CD.value, actual_episodes, actual_episodes))
+                        causal_models, structural_distances = self.causal_discovery_using_rl_data(directory_path)
+                        # Saving the structural distance for latter plotting
+                        for model in causal_models:
+                            shd_distances[model].append(structural_distances[model])
+
+                    else:
+                        # Checking if we can perform T steps of we need to do less
+                        if actual_episodes + T <= max_ep:
+                            step_length_in_episodes = T
+
+                        elif actual_episodes + T > max_ep:
+                            step_length_in_episodes = max_ep - actual_episodes
+                            print(
+                                "It is not possible to execute the next step of the current stage for T episodes. Instead we are running until the max_ep")
+
+                        if step == Step.RL:
+                            sys.stdout.write("\rEpisode {}. Learning task policy using classical RL for the next {} episodes".format(actual_episodes, step_length_in_episodes))
+                            #print("Learning task policy using classical RL for the next {} episodes".format(
+                            #    step_length_in_episodes))
+                            episode_stage.append(
+                                (Step.RL.value, actual_episodes, actual_episodes + step_length_in_episodes))
+
+                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
+                                step_length_in_episodes,
+                                actual_episodes, step, random_initial_states)
+
+                            # Add the RL observations in record to the cumulative data_set
+                            for action in self.actions:
+                                data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
+                                data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
+                                data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
+
+                            # Save the dataset to files to perform Causal Discovery
+                            directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
+
+                            episode_reward.extend(c_qlearning_r)
+                            steps_per_episode.extend(c_qlearning_steps)
+
+                        elif step == Step.RL_USING_CD:
+                            sys.stdout.write(
+                                "\rEpisode {}. Using the causal models for the next {} episodes".format(
+                                    actual_episodes, step_length_in_episodes))
+                            #print("Using the causal models for the next {} episodes".format(step_length_in_episodes))
+                            episode_stage.append(
+                                (Step.RL_USING_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
+
+                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
+                                step_length_in_episodes, actual_episodes, step, random_initial_states, causal_models)
+                            actions_by_model_count_list.append(c_actions_by_model_count)
+                            good_actions_by_model_count_list.append(c_good_actions_by_model_count)
+
+                            if use_crl_data:
+                                # Add the RLCM observations in record to the cumulative data_set
+                                for action in self.actions:
+                                    data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
+                                    data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
+                                    data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
+
+                                # Save the dataset to files to perform Causal Discovery
+                                directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
+
+                            episode_reward.extend(c_qlearning_r)
+                            steps_per_episode.extend(c_qlearning_steps)
+
+                        elif step == Step.RL_FOR_CD:
+                            sys.stdout.write(
+                                "\rEpisode {}. Learning task policy using actions focused on CD for the next {} episodes".format(
+                                    actual_episodes, step_length_in_episodes))
+                            #print("Learning task policy using actions focused on CD for the next {} episodes".format(step_length_in_episodes))
+                            episode_stage.append(
+                                (Step.RL_FOR_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
+
+                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
+                                step_length_in_episodes, actual_episodes, step, random_initial_states)
+
+                            # Add the RL observations in record to the cumulative data_set
+                            for action in self.actions:
+                                data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
+                                data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
+                                data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
+
+                            # Save the dataset to files to perform Causal Discovery
+                            directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
+
+                            episode_reward.extend(c_qlearning_r)
+                            steps_per_episode.extend(c_qlearning_steps)
+
+
+                    # update the variables for next cycle
+                    actual_episodes += step_length_in_episodes
+
+                    if actual_episodes >= max_ep:
+                        maximum_episodes_reached = True
+                        sys.stdout.write("\rEpisode {}. Stages completed".format(actual_episodes))
+                        sys.stdout.flush()
+                        # print("Stages completed\n")
+                        break
+
+                if stage_times == Times.ONE or maximum_episodes_reached:
+                    break
+
+        return np.array(episode_reward), np.array(
+            steps_per_episode), c_record, actions_by_model_count_list, good_actions_by_model_count_list, shd_distances, episode_stage
+
+        # Loop forever:
+        #     for n_steps do
+        #         observe_the_enviroment()
+        #    for n_steps do
+        #         reinforcement_learning()
+        #    causal_model = causal_discovery_usign_data()
+        #     for n_stpes do // Planeacion y mejora y validar el modelo
+        #         mejorar_el_modelo() //Por ahora sin esto seleccion_de_acciones(mejor_recompenza, mas_aporte_al_descubrimiento)
+        #         rl_using_causal_model() // mejora guiada por intervenciones
 
     def learn(self, total_episodes, initial_epsilon_index, step_name, random_initial_states, causal_models=None):
         """ Perform RL learning, return episode_reward, episode_steps, and record of rl_data """
@@ -460,193 +778,6 @@ class DynaQ:
 
         return causal_models, structural_distances
 
-    def planning(self):
-        for i in range(self.n):
-            sta, act = self.model.sample()
-            sta_prime, rew = self.model.step(sta, act)
-            self.q[sta, act] += alpha * (rew + gamma * np.max(self.q[sta_prime]) - self.q[sta, act])
-
-    def crl_learn(self, max_ep, random_initial_states):
-
-        episode_reward = []  # cumulative reward
-        steps_per_episode = []  # steps per episodes
-        actions_by_model_count_list = []
-        good_actions_by_model_count_list = []
-        episode_stage = []  # to store the corresponding stage on each episode
-
-        # SHD distances to measure the performance of Causal Discovery
-        shd_distances = {}
-
-        # To save RL data for all interest variables
-        data_set = {}
-        for action_name in self.env.actions:
-            data_set[action_name] = {"all_states_i": [], "all_states_j": [], "all_rewards": []}
-            shd_distances[action_name] = []  # Just initializing
-
-        # Initialize data_set with synthetic examples for all actions
-        # First, find the variable with higher cardinality and add one row with each possible value for that variable.
-        # Then fill the table for the other variables using the corresponding value % cardinality(other variable)
-        levels_variables = self.env.state_variables_cardinalities
-        max_level_value = max(levels_variables)
-        variables_count = len(levels_variables)
-
-        max_value = max(max_level_value, self.env.reward_variable_cardinality)
-
-        synthetic_values = []
-
-        for i in range(max_value):
-            row = []
-            for j in range(variables_count):
-                value = i % levels_variables[j]
-                row.append(value)
-            synthetic_values.append(row)
-
-        for action in data_set.keys():
-            for i in range(len(synthetic_values)):
-                data_set[action]['all_states_i'].append(synthetic_values[i])
-                data_set[action]['all_states_j'].append(synthetic_values[i])
-                data_set[action]['all_rewards'].append(i % self.env.reward_variable_cardinality)
-
-        actual_episodes = 0
-        maximum_episodes_reached = False
-        causal_models = None
-
-        for stage in combination_strategy.stages:
-
-            stage_times = stage.times
-
-            while True and not maximum_episodes_reached:
-                steps = stage.steps
-                for step in steps:
-
-                    step_length_in_episodes = 0 # This is the default length for CD and Model Init
-
-                    if step == Step.MODEL_INIT:
-                        sys.stdout.write("\rEpisode {}. Loading models for CM initialization".format(actual_episodes))
-                        sys.stdout.flush()
-                        #print("Loading models for CM initialization")
-                        episode_stage.append((Step.MODEL_INIT.value, actual_episodes, actual_episodes))
-                        causal_models, structural_distances = self.causal_discovery_using_rl_data(
-                            model_init_path)
-
-                    elif step == Step.CD:
-                        sys.stdout.write("\rEpisode {}. Learning CMs using RL data".format(actual_episodes))
-                        #print("Learning CMs using RL data")
-                        episode_stage.append((Step.CD.value, actual_episodes, actual_episodes))
-                        causal_models, structural_distances = self.causal_discovery_using_rl_data(directory_path)
-                        # Saving the structural distance for latter plotting
-                        for model in causal_models:
-                            shd_distances[model].append(structural_distances[model])
-
-                    else:
-                        # Checking if we can perform T steps of we need to do less
-                        if actual_episodes + T <= max_ep:
-                            step_length_in_episodes = T
-
-                        elif actual_episodes + T > max_ep:
-                            step_length_in_episodes = max_ep - actual_episodes
-                            print(
-                                "It is not possible to execute the next step of the current stage for T episodes. Instead we are running until the max_ep")
-
-                        if step == Step.RL:
-                            sys.stdout.write("\rEpisode {}. Learning task policy using classical RL for the next {} episodes".format(actual_episodes, step_length_in_episodes))
-                            #print("Learning task policy using classical RL for the next {} episodes".format(
-                            #    step_length_in_episodes))
-                            episode_stage.append(
-                                (Step.RL.value, actual_episodes, actual_episodes + step_length_in_episodes))
-
-                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
-                                step_length_in_episodes,
-                                actual_episodes, step, random_initial_states)
-
-                            # Add the RL observations in record to the cumulative data_set
-                            for action in self.actions:
-                                data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
-                                data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
-                                data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
-
-                            # Save the dataset to files to perform Causal Discovery
-                            directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
-
-                            episode_reward.extend(c_qlearning_r)
-                            steps_per_episode.extend(c_qlearning_steps)
-
-                        elif step == Step.RL_USING_CD:
-                            sys.stdout.write(
-                                "\rEpisode {}. Using the causal models for the next {} episodes".format(
-                                    actual_episodes, step_length_in_episodes))
-                            #print("Using the causal models for the next {} episodes".format(step_length_in_episodes))
-                            episode_stage.append(
-                                (Step.RL_USING_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
-
-                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
-                                step_length_in_episodes, actual_episodes, step, random_initial_states, causal_models)
-                            actions_by_model_count_list.append(c_actions_by_model_count)
-                            good_actions_by_model_count_list.append(c_good_actions_by_model_count)
-
-                            if use_crl_data:
-                                # Add the RLCM observations in record to the cumulative data_set
-                                for action in self.actions:
-                                    data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
-                                    data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
-                                    data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
-
-                                # Save the dataset to files to perform Causal Discovery
-                                directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
-
-                            episode_reward.extend(c_qlearning_r)
-                            steps_per_episode.extend(c_qlearning_steps)
-
-                        elif step == Step.RL_FOR_CD:
-                            sys.stdout.write(
-                                "\rEpisode {}. Learning task policy using actions focused on CD for the next {} episodes".format(
-                                    actual_episodes, step_length_in_episodes))
-                            #print("Learning task policy using actions focused on CD for the next {} episodes".format(step_length_in_episodes))
-                            episode_stage.append(
-                                (Step.RL_FOR_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
-
-                            c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
-                                step_length_in_episodes, actual_episodes, step, random_initial_states)
-
-                            # Add the RL observations in record to the cumulative data_set
-                            for action in self.actions:
-                                data_set[action]['all_states_i'].extend(c_record[action]['all_states_i'])
-                                data_set[action]['all_states_j'].extend(c_record[action]['all_states_j'])
-                                data_set[action]['all_rewards'].extend(c_record[action]['all_rewards'])
-
-                            # Save the dataset to files to perform Causal Discovery
-                            directory_path = self.save_data_to_file(data_set, actual_episodes + step_length_in_episodes)
-
-                            episode_reward.extend(c_qlearning_r)
-                            steps_per_episode.extend(c_qlearning_steps)
-
-
-                    # update the variables for next cycle
-                    actual_episodes += step_length_in_episodes
-
-                    if actual_episodes >= max_ep:
-                        maximum_episodes_reached = True
-                        sys.stdout.write("\rEpisode {}. Stages completed".format(actual_episodes))
-                        sys.stdout.flush()
-                        # print("Stages completed\n")
-                        break
-
-                if stage_times == Times.ONE or maximum_episodes_reached:
-                    break
-
-        return np.array(episode_reward), np.array(
-            steps_per_episode), c_record, actions_by_model_count_list, good_actions_by_model_count_list, shd_distances, episode_stage
-
-        # Loop forever:
-        #     for n_steps do
-        #         observe_the_enviroment()
-        #    for n_steps do
-        #         reinforcement_learning()
-        #    causal_model = causal_discovery_usign_data()
-        #     for n_stpes do // Planeacion y mejora y validar el modelo
-        #         mejorar_el_modelo() //Por ahora sin esto seleccion_de_acciones(mejor_recompenza, mas_aporte_al_descubrimiento)
-        #         rl_using_causal_model() // mejora guiada por intervenciones
-
     def save_data_to_file(self, data_set, actual_episodes):
         for action in self.actions:
             all_states_i = data_set[action]["all_states_i"]
@@ -658,33 +789,6 @@ class DynaQ:
             directory_path = util.save_rl_data(folder, action, all_states_i, all_states_j,
                                                all_rewards, env, epsilon_values, actual_episodes)
         return directory_path
-
-
-class Model:
-    def __init__(self, n_states, n_actions):
-        self.transitions = np.zeros((n_states, n_actions), dtype=np.uint8)
-        self.rewards = np.zeros((n_states, n_actions))
-        self.visited_state_action = np.zeros((n_states, n_actions), dtype=np.bool_)
-
-    def add(self, sta, act, sta_prime, rew):
-        self.transitions[sta, act] = sta_prime
-        self.rewards[sta, act] = rew
-        self.visited_state_action[sta, act] = 1
-
-    def sample(self):
-        """ Return random state, action"""
-        # Random visited state
-        sta = np.random.choice(np.where(np.sum(self.visited_state_action, axis=1) > 0)[0])
-        # Random action already token in that state
-        act = np.random.choice(np.where(self.visited_state_action[sta] > 0)[0])
-
-        return sta, act
-
-    def step(self, sta, act):
-        """ Return state_prime and reward for state-action pair"""
-        sta_prime = self.transitions[sta, act]
-        rew = self.rewards[sta, act]
-        return sta_prime, rew
 
 
 if __name__ == '__main__':
@@ -707,7 +811,7 @@ if __name__ == '__main__':
         env = gym.make(environment_name, render_mode = "none", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
-        results_folder = "Sensitive Analisis - th"
+        results_folder = "Deep RL experiments"
         # Sub folders
         rl_result_folder = "rl_results"
         causal_discovery_data_folder = "cd_data_and_results"
@@ -720,7 +824,9 @@ if __name__ == '__main__':
         # Initializing experiment related params
         experiment_name = experiment_conf.exp_name
         evaluation_metric = experiment_conf.evaluation_metric
+        # TODO actually max_episodes is the max_total_steps
         max_episodes = experiment_conf.max_episodes
+        # TODO actually max_steps is the maximun steps before restart the environment.
         max_steps = experiment_conf.max_steps
         action_count_strategy = experiment_conf.action_count_strategy
         shared_initial_states = experiment_conf.shared_initial_states
@@ -809,7 +915,7 @@ if __name__ == '__main__':
 
                 # Check if algorithm is CRL first because CRL extend RL
                 if isinstance(algorithm, CRLConf):
-                    crl_agent = DynaQ(env, n, alpha, gamma, epsilon_values, max_steps)
+                    crl_agent = DeepCRL(env, n, alpha, gamma, epsilon_values, max_steps)
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = crl_agent.crl_learn(
                         max_episodes, random_initial_states)
@@ -824,7 +930,7 @@ if __name__ == '__main__':
 
                 else: #isinstance(algorithm, RLConf):
                     # First, do reinforcement learning alone
-                    rl_agent = DynaQ(env, n, alpha, gamma, epsilon_values, max_steps)
+                    rl_agent = DeepCRL(env, n, alpha, gamma, epsilon_values, max_steps)
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = rl_agent.learn(
                         max_episodes, initial_epsilon_index=0, step_name=Step.RL, random_initial_states = random_initial_states)

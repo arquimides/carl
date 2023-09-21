@@ -50,8 +50,8 @@ class AtariGymnasiumWrapper(Environment):
 
     """
 
-    def __init__(self, name, width=84, height=84, ends_at_life=False,
-                 max_pooling=True, history_length=4, max_no_op_actions=30):
+    def __init__(self, env, width=84, height=84, ends_at_life=False,
+                 max_pooling=True, history_length=4, max_no_op_actions=30, max_steps_before_reset=10000):
         """
         Constructor.
 
@@ -69,12 +69,11 @@ class AtariGymnasiumWrapper(Environment):
 
         """
         # MPD creation
-        if 'NoFrameskip' in name:
+        if 'NoFrameskip' in env.spec.id:
             #self.env = MaxAndSkipGymnasium(gym.make(name), history_length, max_pooling)
             pass
         else:
-            self.env = gym.make(name, render_mode='rgb_array')
-            #self.env = gym.make(name, render_mode='human')
+            self.env = env
 
         # MDP parameters
         self._img_size = (width, height)
@@ -96,7 +95,7 @@ class AtariGymnasiumWrapper(Environment):
         observation_space = Box(
             low=0., high=255., shape=(history_length, self._img_size[1], self._img_size[0]))
         #horizon = np.inf  # the gym time limit is used.
-        horizon = 10000  # OurGym env max steps per episodes.
+        horizon = max_steps_before_reset  # OurGym env max steps per episodes.
         gamma = .99
         dt = 1 / 60
 

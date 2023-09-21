@@ -8,7 +8,8 @@ import util
 import sys
 from experiments_configurations import config
 from experiments_configurations.config import EvaluationMetric, EpisodeStateInitialization, Times, \
-    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy, EnvironmentType
+    Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy, \
+    EnvironmentType, DeepCRLConf, DeepRLConf
 
 # Configuring the rpy2 stuff for R communication
 r = ro.r  # Creating the R instance
@@ -111,7 +112,7 @@ class FeatureNetwork(nn.Module):
 
 
 class DeepCRL:
-    def __init__(self, env, name='our_gym_environments/TaxiAtariSmallEnv-v0', screen_width=84, screen_height=84,
+    def __init__(self, env, screen_width=84, screen_height=84,
                  initial_replay_size=50000, max_replay_size=500000, prioritized=False,
                  optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
                  algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
@@ -120,11 +121,10 @@ class DeepCRL:
                  final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
                  max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
                  n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
-                 stage_duration=30000, frequency_value=30, confidence_threshold=0.7,
                  use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False):
 
         # Environment
-        self.name = name  # Gym ID of the Atari game
+        self.name = env.spec.id  # Gym ID of the Atari game
         self.screen_width = screen_width  # Width of the game screen
         self.screen_height = screen_height  # Height of the game screen
 
@@ -151,7 +151,6 @@ class DeepCRL:
         self.optimizer = optimizer  # Name of the optimizer to use
         self.learning_rate = learning_rate  # Learning rate value of the optimizer
         self.decay = decay  # Discount factor for the history coming from the gradient momentum
-        self.epsilon = epsilon  # Epsilon term used in optimizer
 
         # Algorithm
         self.algorithm = algorithm  # Name of the algorithm
@@ -176,11 +175,6 @@ class DeepCRL:
         self.n_steps_return = n_steps_return  # Number of steps for n-step return for Rainbow
         self.sigma_coeff = sigma_coeff  # Sigma0 coefficient for noise initialization
 
-        # CARL related
-        self.stage_duration = stage_duration  # Maximum number of steps in a stage
-        self.frequency_value = frequency_value  # Number of times an action needs to be performed in a state
-        self.confidence_threshold = confidence_threshold  # Confidence threshold in RL-USING-CD stages
-
         # Util
         self.use_cuda = use_cuda  # Flag specifying whether to use the GPU
         self.save = save  # Flag specifying whether to save the model
@@ -188,6 +182,134 @@ class DeepCRL:
         self.render = render  # Flag specifying whether to render the game
         self.quiet = quiet  # Flag specifying whether to hide the progress bar
         self.debug = debug  # Flag specifying whether the script runs in debug mode
+
+        # Summary folder
+        self.folder_name = './logs/atari_' + algorithm_name + '_' + self.name + \
+                      '_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        pathlib.Path(self.folder_name).mkdir(parents=True)
+
+        self.optimizer = dict()
+        if optimizer == 'adam':
+            self.optimizer['class'] = optim.Adam
+            self.optimizer['params'] = dict(lr=learning_rate,
+                                       eps=epsilon)
+        elif optimizer == 'adadelta':
+            self.optimizer['class'] = optim.Adadelta
+            self.optimizer['params'] = dict(lr=learning_rate,
+                                       eps=epsilon)
+        elif optimizer == 'rmsprop':
+            self.optimizer['class'] = optim.RMSprop
+            self.optimizer['params'] = dict(lr=learning_rate,
+                                       alpha=decay,
+                                       eps=epsilon)
+        elif optimizer == 'rmspropcentered':
+            self.optimizer['class'] = optim.RMSprop
+            self.optimizer['params'] = dict(lr=learning_rate,
+                                       alpha=decay,
+                                       eps=epsilon,
+                                       centered=True)
+
+        # MDP initialization for TaxiAtari
+        self.mdp = AtariGymnasiumWrapper(self.env, screen_width, screen_height,
+                                    ends_at_life=True, history_length=history_length,
+                                    max_no_op_actions=0,max_steps_before_reset=max_steps_before_reset)
+
+        # Policy
+        self.epsilon = LinearParameter(value=initial_exploration_rate,
+                                  threshold_value=final_exploration_rate,
+                                  n=final_exploration_frame)
+        self.epsilon_test = Parameter(value=test_exploration_rate)
+        self.epsilon_random = Parameter(value=1)
+        self.pi = EpsGreedy(epsilon=self.epsilon_random)
+
+        # Approximator
+        self.approximator_params = dict(
+            network=Network if algorithm not in ['dueldqn', 'cdqn', 'ndqn', 'qdqn', 'rainbow'] else FeatureNetwork,
+            input_shape=self.mdp.info.observation_space.shape,
+            output_shape=(self.mdp.info.action_space.n,),
+            n_actions=self.mdp.info.action_space.n,
+            n_features=Network.n_features,
+            optimizer=self.optimizer,
+            use_cuda=use_cuda
+        )
+        if self.algorithm not in ['cdqn', 'qdqn', 'rainbow']:
+            self.approximator_params['loss'] = F.smooth_l1_loss
+
+        self.approximator = TorchApproximator
+
+        # Memory
+        if prioritized:
+            self.replay_memory = PrioritizedReplayMemory(
+                initial_replay_size, max_replay_size, alpha=alpha_coeff,
+                beta=LinearParameter(.4, threshold_value=1,
+                                     n=max_steps // train_frequency)
+            )
+        else:
+            self.replay_memory = None
+
+        # Agent
+        self.algorithm_params = dict(
+            batch_size=batch_size,
+            target_update_frequency=target_update_frequency // train_frequency,
+            replay_memory=self.replay_memory,
+            initial_replay_size=initial_replay_size,
+            max_replay_size=max_replay_size
+        )
+
+        if algorithm == 'dqn':
+            alg = DQN
+            self.agent = alg(self.mdp.info, self.pi, self.approximator,
+                        approximator_params=self.approximator_params,
+                        **self.algorithm_params)
+        elif algorithm == 'ddqn':
+            alg = DoubleDQN
+            self.agent = alg(self.mdp.info, self.pi, self.approximator,
+                        approximator_params=self.approximator_params,
+                        **self.algorithm_params)
+        elif algorithm == 'adqn':
+            alg = AveragedDQN
+            self.agent = alg(self.mdp.info, self.pi, self.approximator,
+                        approximator_params=self.approximator_params,
+                        n_approximators=n_approximators,
+                        **self.algorithm_params)
+        elif algorithm == 'mmdqn':
+            alg = MaxminDQN
+            self.agent = alg(self.mdp.info, self.pi, self.approximator,
+                        approximator_params=self.approximator_params,
+                        n_approximators=n_approximators,
+                        **self.algorithm_params)
+        elif algorithm == 'dueldqn':
+            alg = DuelingDQN
+            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
+                        **self.algorithm_params)
+        elif algorithm == 'cdqn':
+            alg = CategoricalDQN
+            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
+                        n_atoms=n_atoms, v_min=v_min,
+                        v_max=v_max, **self.algorithm_params)
+        elif algorithm == 'ndqn':
+            alg = NoisyDQN
+            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
+                        sigma_coeff=sigma_coeff, **self.algorithm_params)
+        elif algorithm == 'qdqn':
+            alg = QuantileDQN
+            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
+                        n_quantiles=n_quantiles, **self.algorithm_params)
+        elif algorithm == 'rainbow':
+            alg = Rainbow
+            beta = LinearParameter(.4, threshold_value=1, n=max_steps // train_frequency)
+            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
+                        n_atoms=n_atoms, v_min=v_min,
+                        v_max=v_max, n_steps_return=n_steps_return,
+                        alpha_coeff=alpha_coeff, beta=beta,
+                        sigma_coeff=sigma_coeff, **self.algorithm_params)
+
+        self.logger = Logger(alg.__name__, results_dir=None)
+        self.logger.strong_line()
+        self.logger.info('Experiment Algorithm: ' + alg.__name__)
+
+        # Algorithm
+        self.core = Core(self.agent, self.mdp)
 
     def crl_learn(self, max_ep, random_initial_states):
 
@@ -370,13 +492,16 @@ class DeepCRL:
         #         mejorar_el_modelo() //Por ahora sin esto seleccion_de_acciones(mejor_recompenza, mas_aporte_al_descubrimiento)
         #         rl_using_causal_model() // mejora guiada por intervenciones
 
-    def learn(self, total_episodes, initial_epsilon_index, step_name, random_initial_states, causal_models=None):
-        """ Perform RL learning, return episode_reward, episode_steps, and record of rl_data """
+    def learn(self, total_steps, initial_epsilon_index, step_name, causal_models=None):
+        """ Perform Deep-RL learning, return episode_reward, episode_steps, and record of rl_data """
+
+        # Set the core to perform the corresponding CARL stage0
+        self.core.step_name = step_name
 
         episode_reward = []  # cumulative reward
         steps_per_episode = []  # steps per episodes
         episode_stage = []  # to store the corresponding stage on each episode
-        episode_stage.append((step_name, initial_epsilon_index, initial_epsilon_index + total_episodes))
+        episode_stage.append((step_name, initial_epsilon_index, initial_epsilon_index + total_steps))
 
         record = {}
 
@@ -397,14 +522,57 @@ class DeepCRL:
         # This variable is updated at the beginning of every T episodes because the models can be updated
         suggested_action = {}
 
-        if episode_state_initialization == EpisodeStateInitialization.RANDOM:
-            seed = None #TODO ver como hago esto
+        # if episode_state_initialization == EpisodeStateInitialization.RANDOM:
+        #     seed = None #TODO ver como hago esto
 
         action_count = self.original_action_count
         if action_count_strategy == ActionCountStrategy.Relational:
             action_count = self.relational_action_count
 
-        # For each episode
+        scores = list()
+
+        # RUN
+
+        # Fill replay memory with a number of interactions depending on the step_name
+        # TODO Do this only if the memory is empty
+        util.print_epoch(0, self.logger)
+        self.core.learn(n_steps=self.initial_replay_size, n_steps_per_fit=self.initial_replay_size, quiet=quiet)
+
+        if self.save:
+            self.agent.save(self.folder_name + '/agent_0.msh')
+
+        # Evaluate initial policy
+        self.pi.set_epsilon(self.epsilon_test)
+        self.mdp.set_episode_end(False)
+        dataset = self.core.evaluate(n_steps=test_samples, render=self.render, quiet=self.quiet)
+        scores.append(util.get_stats(dataset, self.logger))
+
+        np.save(self.folder_name + '/scores.npy', scores)
+
+        # For each epoch
+        for n_epoch in range(1, max_steps // self.evaluation_frequency + 1):
+            util.print_epoch(n_epoch, self.logger)
+            self.logger.info('- Learning:')
+            # learning step
+            self.pi.set_epsilon(self.epsilon)
+            self.mdp.set_episode_end(True)
+            self.core.learn(n_steps=self.evaluation_frequency,
+                       n_steps_per_fit=self.train_frequency, quiet=self.quiet)
+
+            if self.save:
+                self.agent.save(self.folder_name + '/agent_' + str(n_epoch) + '.msh')
+
+            self.logger.info('- Evaluation:')
+            # evaluation step
+            self.pi.set_epsilon(self.epsilon_test)
+            self.mdp.set_episode_end(False)
+            dataset = self.core.evaluate(n_steps=self.test_samples, render=self.render,
+                                    quiet=self.quiet)
+            scores.append(util.get_stats(dataset, self.logger))
+
+            np.save(self.folder_name + '/scores.npy', scores)
+
+        # For each epoch
         for episode in range(total_episodes):
 
             if not shared_initial_states:
@@ -459,42 +627,6 @@ class DeepCRL:
                 do_rl = False
 
                 if step_name == Step.RL_USING_CD:
-
-                    # if rl_action_selection_strategy == ActionSelectionStrategy.EPSILON_GREEDY:
-                    #     if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:
-                    #         # Explore
-                    #         a = self.actions.index(np.random.choice(self.actions))
-                    #         #a = np.random.choice(np.where(action_count[state_index] == np.min(action_count[state_index]))[0])
-                    #
-                    #     else:  # Exploit
-                    #         #a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
-                    #         # Check if the model already gives an action on the given state to not infer it again
-                    #
-                    #         if causal_models is not None:
-                    #
-                    #             if state_index in suggested_action:
-                    #                 action_indexes, reward_indexes = suggested_action[state_index]
-                    #
-                    #             elif model_use_strategy == ModelUseStrategy.IMMEDIATE_POSITIVE:
-                    #
-                    #                 action_indexes, reward_indexes = self.causal_based_action_selection_1(
-                    #                     self.states[self.env.s],
-                    #                     cm_fited)
-                    #
-                    #             elif model_use_strategy == ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE:
-                    #
-                    #                 action_indexes, reward_indexes = self.causal_based_action_selection_2(
-                    #                     self.states[self.env.s],
-                    #                     cm_fited)
-                    #
-                    #             suggested_action[state_index] = action_indexes, reward_indexes
-                    #
-                    #         if causal_models is not None and action_indexes:
-                    #             a = np.random.choice(
-                    #                 np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],
-                    #                                action_indexes))
-                    #         else:
-                    #             a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
 
                     # Check if the model already gives an action on the given state to not infer it again
                     if state_index in suggested_action:
@@ -652,12 +784,6 @@ class DeepCRL:
                 update = self.alpha * (reward + self.gamma * np.max(self.q[s_prime]) - self.q[s, a])
                 self.q[s, a] += update
 
-                # Learn model
-                self.model.add(s, a, s_prime, reward)
-
-                # Planning for n steps
-                self.planning()
-
                 # Set state for next loop. NOT NECESSARY ANY MORE
 
             # Add the corresponding evaluation metric for later plotting
@@ -808,7 +934,7 @@ if __name__ == '__main__':
         reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
 
         # Environment Initialization
-        env = gym.make(environment_name, render_mode = "none", env_type = environment_type, reward_type = reward_type, render_fps=64)
+        env = gym.make(environment_name, render_mode = "rgb_array", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
         results_folder = "Deep RL experiments"
@@ -825,9 +951,9 @@ if __name__ == '__main__':
         experiment_name = experiment_conf.exp_name
         evaluation_metric = experiment_conf.evaluation_metric
         # TODO actually max_episodes is the max_total_steps
-        max_episodes = experiment_conf.max_episodes
+        max_total_steps = experiment_conf.max_episodes
         # TODO actually max_steps is the maximun steps before restart the environment.
-        max_steps = experiment_conf.max_steps
+        max_steps_before_reset = experiment_conf.max_steps
         action_count_strategy = experiment_conf.action_count_strategy
         shared_initial_states = experiment_conf.shared_initial_states
         trials = experiment_conf.trials
@@ -838,13 +964,13 @@ if __name__ == '__main__':
         # get the start time
         st = time.time()
 
-        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env.spec.name, environment_type, max_episodes, max_steps, action_count_strategy,shared_initial_states, trials)
+        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env.spec.name, environment_type, max_total_steps, max_steps_before_reset, action_count_strategy,shared_initial_states, trials)
         print("Starting Experiment: " + experiment_folder_name)
 
         # Variables to store the results on RL policy learning (reward and steps) among trials for each algorithm
         algorithm_names = [""] * number_of_algorithms
-        algorithm_r = np.zeros((number_of_algorithms, trials, max_episodes))
-        algorithm_steps = np.zeros((number_of_algorithms, trials, max_episodes))
+        algorithm_r = np.zeros((number_of_algorithms, trials, max_total_steps))
+        algorithm_steps = np.zeros((number_of_algorithms, trials, max_total_steps))
 
         # Variable to measure CD results of each algorithm performing CD among trials
         causal_qlearning_shd_distances = []  # To store the shd_distances dict for each trial
@@ -861,7 +987,7 @@ if __name__ == '__main__':
             alg_episode_stages = []
 
             # Creating the random episode init state vector to be shared among all algorithms on each trial
-            random_initial_states = env.random_initial_states(max_episodes)
+            #random_initial_states = env.random_initial_states(max_episodes)
 
             for a in range(number_of_algorithms):
 
@@ -871,42 +997,73 @@ if __name__ == '__main__':
                 algorithm_names[a] = alg_name
                 combination_strategy = algorithm.combination_strategy
 
-                # Hyperparams for Rl algorithm part
-                n = algorithm.n
-                alpha = algorithm.alpha
-                gamma = algorithm.gamma
-                epsilon_start = algorithm.epsilon_start
-                epsilon_end = algorithm.epsilon_end
-                # epsilon_strategy = algorithm.epsilon_strategy
-                # decay_rate = algorithm.decay_rate.value
-                rl_action_selection_strategy = algorithm.rl_action_selection_strategy
-                episode_state_initialization = algorithm.episode_state_initialization
+                # Params for Deep-Rl algorithm part
+                screen_width = algorithm.screen_width  # Width of the game screen
+                screen_height = algorithm.screen_height  # Height of the game screen
+                # Replay Memory
+                initial_replay_size = algorithm.initial_replay_size  # Initial size of the replay memory
+                max_replay_size = algorithm.max_replay_size  # Max size of the replay memory
+                prioritized = algorithm.prioritized  # Whether to use prioritized memory or not
+                # Deep Q-Network
+                optimizer = algorithm.optimizer  # Name of the optimizer to use
+                learning_rate = algorithm.learning_rate  # Learning rate value of the optimizer
+                decay = algorithm.decay  # Discount factor for the history coming from the gradient momentum
+                epsilon = algorithm.epsilon  # Epsilon term used in optimizer
+                # Algorithm
+                algorithm_name = algorithm.algorithm  # Name of the algorithm
+                n_approximators = algorithm.n_approximators  # Number of approximators used
+                batch_size = algorithm.batch_size  # Batch size for each fit of the network
+                history_length = algorithm.history_length  # Number of frames composing a state
+                target_update_frequency = algorithm.target_update_frequency  # Frequency of target network update
+                evaluation_frequency = algorithm.evaluation_frequency  # Frequency of evaluation
+                train_frequency = algorithm.train_frequency  # Frequency of network training
+                max_steps = algorithm.max_steps  # Total number of collected samples
+                final_exploration_frame = algorithm.final_exploration_frame  # Number of samples for exploration rate decay
+                initial_exploration_rate = algorithm.initial_exploration_rate  # Initial exploration rate
+                final_exploration_rate = algorithm.final_exploration_rate  # Final exploration rate
+                test_exploration_rate = algorithm.test_exploration_rate  # Exploration rate during evaluation
+                test_samples = algorithm.test_samples  # Number of collected samples for each evaluation
+                max_no_op_actions = algorithm.max_no_op_actions  # Maximum number of no-op actions at the beginning of episodes
+                alpha_coeff = algorithm.alpha_coeff  # Prioritization exponent
+                n_atoms = algorithm.n_atoms  # Number of atoms for Categorical DQN
+                v_min = algorithm.v_min  # Minimum action-value for Categorical DQN
+                v_max = algorithm.v_max  # Maximum action-value for Categorical DQN
+                n_quantiles = algorithm.n_quantiles  # Number of quantiles for Quantile Regression DQN
+                n_steps_return = algorithm.n_steps_return  # Number of steps for n-step return for Rainbow
+                sigma_coeff = algorithm.sigma_coeff  # Sigma0 coefficient for noise initialization
+                # Util
+                use_cuda = algorithm.use_cuda  # Flag specifying whether to use the GPU
+                save = algorithm.save  # Flag specifying whether to save the model
+                load_path = algorithm.load_path  # Path of the model to be loaded
+                render = algorithm.render  # Flag specifying whether to render the game
+                quiet = algorithm.quiet  # Flag specifying whether to hide the progress bar
+                debug = algorithm.debug  # Flag specifying whether the script runs in debug mode
 
                 # Parameters for Causal-RL
-                if isinstance(algorithm, CRLConf):
+                if isinstance(algorithm, DeepCRLConf):
                     # Episodes to change between RL for CD and RL using CD
                     T = algorithm.T
                     # Causal Discovery Threshold
                     threshold = algorithm.th
+                    min_frequency = algorithm.min_frequency
                     model_use_strategy = algorithm.model_use_strategy
                     model_discovery_strategy = algorithm.model_discovery_strategy
-                    min_frequency = algorithm.min_frequency
                     crl_action_selection_strategy = algorithm.crl_action_selection_strategy
                     use_crl_data = algorithm.use_crl_data
                     model_init_path = algorithm.model_init_path
 
-                # Precalculating the epsilon values for all episodes
-                epsilon_values = []
-                epsilon_decay_rate = (epsilon_start - epsilon_end) / max_episodes
-
-                for epi in range(max_episodes):
-                    epsilon_values.append(epsilon_start - epi * epsilon_decay_rate)
-
-                    # if epsilon_strategy == EpsilonStrategy.DECAYED:
-                    #     # epsilon decreases exponentially --> our agent will explore less and less
-                    #     epsilon_values.append(epsilon * np.exp(-decay_rate * epi))
-                    # elif epsilon_strategy == EpsilonStrategy.FIXED:
-                    #     epsilon_values.append(epsilon)
+                # # Precalculating the epsilon values for all episodes
+                # epsilon_values = []
+                # epsilon_decay_rate = (epsilon_start - epsilon_end) / max_episodes
+                #
+                # for epi in range(max_episodes):
+                #     epsilon_values.append(epsilon_start - epi * epsilon_decay_rate)
+                #
+                #     # if epsilon_strategy == EpsilonStrategy.DECAYED:
+                #     #     # epsilon decreases exponentially --> our agent will explore less and less
+                #     #     epsilon_values.append(epsilon * np.exp(-decay_rate * epi))
+                #     # elif epsilon_strategy == EpsilonStrategy.FIXED:
+                #     #     epsilon_values.append(epsilon)
 
                 # Reset the environment before to start, this can be always original because we are goin to restart again later
                 env.reset(options={'state_index': 0, 'state_type': "original"})
@@ -914,11 +1071,18 @@ if __name__ == '__main__':
                 print("\nStarting algorithm {}. {}".format(a+1, alg_name))
 
                 # Check if algorithm is CRL first because CRL extend RL
-                if isinstance(algorithm, CRLConf):
-                    crl_agent = DeepCRL(env, n, alpha, gamma, epsilon_values, max_steps)
+                if isinstance(algorithm, DeepCRLConf):
+                    # Do Deep Reinforcement Learning with CARL
+                    agent = DeepCRL(env,screen_width, screen_height, initial_replay_size, max_replay_size, prioritized, optimizer,
+                                        learning_rate, decay, epsilon, algorithm_name, n_approximators, batch_size, history_length,
+                                        target_update_frequency, evaluation_frequency, train_frequency, max_steps, final_exploration_frame,
+                                        initial_exploration_rate, final_exploration_rate, test_exploration_rate, test_samples, max_no_op_actions,
+                                        alpha_coeff, n_atoms, v_min, v_max, n_quantiles, n_steps_return, sigma_coeff, use_cuda, save, load_path,
+                                        render, quiet, debug)
+
                     algorithm_r[a][t], algorithm_steps[a][
-                        t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = crl_agent.crl_learn(
-                        max_episodes, random_initial_states)
+                        t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = agent.crl_learn(
+                        max_total_steps)
                     alg_shd_distances.append(shd_distances)
 
                     for stage in episode_stage:
@@ -928,12 +1092,17 @@ if __name__ == '__main__':
 
                     alg_episode_stages.append(episode_stage)
 
-                else: #isinstance(algorithm, RLConf):
-                    # First, do reinforcement learning alone
-                    rl_agent = DeepCRL(env, n, alpha, gamma, epsilon_values, max_steps)
+                else: #isinstance(algorithm, DeepRLConf):
+                    # Do traditional Deep Reinforcement Learning without using any model
+                    agent = DeepCRL(env,screen_width, screen_height, initial_replay_size, max_replay_size, prioritized,
+                                    optimizer, learning_rate, decay, epsilon, algorithm_name, n_approximators, batch_size,
+                                    history_length, target_update_frequency, evaluation_frequency, train_frequency, max_steps,
+                                    final_exploration_frame, initial_exploration_rate, final_exploration_rate, test_exploration_rate,
+                                    test_samples, max_no_op_actions, alpha_coeff, n_atoms, v_min, v_max, n_quantiles, n_steps_return, sigma_coeff,
+                                    use_cuda, save, load_path, render, quiet, debug)
                     algorithm_r[a][t], algorithm_steps[a][
-                        t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = rl_agent.learn(
-                        max_episodes, initial_epsilon_index=0, step_name=Step.RL, random_initial_states = random_initial_states)
+                        t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = agent.learn(
+                        max_total_steps, initial_epsilon_index=0, step_name=Step.RL)
 
             print()
             # Plot and save the RL results for the given trial for all algorithms. The episode stage variable only contains

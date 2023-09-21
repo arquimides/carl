@@ -13,6 +13,8 @@ ale-py~=0.7.5
 # mushroom_rl/core/environment.py with the latest version in the github repo
 # And the mushroom_rl/core/core.py file with our local version carl/core.py in line 204 adding the truncated variable to work
 # Line 204: next_state, reward, absorbing, truncated, step_info = self.mdp.step(action)
+# It is etter to replace the entire core.py file with our modified file in the folder replace/core.py
+
 
 # R an some libs are also required
 # bnlearn install.packages("https://www.bnlearn.com/releases/bnlearn_latest.tar.gz", repos = NULL, type = "source")

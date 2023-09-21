@@ -294,7 +294,7 @@ def experiment():
     #             ends_at_life=True, history_length=args.history_length,
     #             max_no_op_actions=args.max_no_op_actions)
 
-    # MDP initialization for Taxi
+    # MDP initialization for TaxiAtari
     mdp = AtariGymnasiumWrapper(args.name, args.screen_width, args.screen_height,
                ends_at_life=True, history_length=args.history_length,
                max_no_op_actions=0)

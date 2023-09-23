@@ -212,7 +212,7 @@ class DeepCRL:
         # MDP initialization for TaxiAtari
         self.mdp = AtariGymnasiumWrapper(self.env, screen_width, screen_height,
                                     ends_at_life=True, history_length=history_length,
-                                    max_no_op_actions=0,max_steps_before_reset=max_steps_before_reset)
+                                    max_no_op_actions=0,max_steps_before_reset=max_steps_per_episode)
 
         # Policy
         self.epsilon = LinearParameter(value=initial_exploration_rate,
@@ -492,7 +492,7 @@ class DeepCRL:
         #         mejorar_el_modelo() //Por ahora sin esto seleccion_de_acciones(mejor_recompenza, mas_aporte_al_descubrimiento)
         #         rl_using_causal_model() // mejora guiada por intervenciones
 
-    def learn(self, total_steps, initial_epsilon_index, step_name, causal_models=None):
+    def learn(self, total_episodes, initial_epsilon_index, step_name, causal_models=None):
         """ Perform Deep-RL learning, return episode_reward, episode_steps, and record of rl_data """
 
         # Set the core to perform the corresponding CARL stage0
@@ -501,7 +501,7 @@ class DeepCRL:
         episode_reward = []  # cumulative reward
         steps_per_episode = []  # steps per episodes
         episode_stage = []  # to store the corresponding stage on each episode
-        episode_stage.append((step_name, initial_epsilon_index, initial_epsilon_index + total_steps))
+        episode_stage.append((step_name, initial_epsilon_index, initial_epsilon_index + total_episodes))
 
         record = {}
 
@@ -535,42 +535,46 @@ class DeepCRL:
 
         # Fill replay memory with a number of interactions depending on the step_name
         # TODO Do this only if the memory is empty
-        util.print_epoch(0, self.logger)
-        self.core.learn(n_steps=self.initial_replay_size, n_steps_per_fit=self.initial_replay_size, quiet=quiet)
+        # util.print_epoch(0, self.logger)
+        # #self.core.learn(n_steps=self.initial_replay_size, n_steps_per_fit=self.initial_replay_size, quiet=quiet)
+        # self.core.learn(n_episodes=10, n_episodes_per_fit=10, quiet=quiet)
+        #
+        # if self.save:
+        #     self.agent.save(self.folder_name + '/agent_0.msh')
+        #
+        # # Evaluate initial policy
+        # self.pi.set_epsilon(self.epsilon_test)
+        # self.mdp.set_episode_end(False)
+        # dataset = self.core.evaluate(n_steps=test_samples, render=self.render, quiet=self.quiet)
+        # scores.append(util.get_stats(dataset, self.logger))
+        #
+        # np.save(self.folder_name + '/scores.npy', scores)
 
-        if self.save:
-            self.agent.save(self.folder_name + '/agent_0.msh')
-
-        # Evaluate initial policy
-        self.pi.set_epsilon(self.epsilon_test)
-        self.mdp.set_episode_end(False)
-        dataset = self.core.evaluate(n_steps=test_samples, render=self.render, quiet=self.quiet)
-        scores.append(util.get_stats(dataset, self.logger))
-
-        np.save(self.folder_name + '/scores.npy', scores)
-
-        # For each epoch
+        # For each episode
         for n_epoch in range(1, max_steps // self.evaluation_frequency + 1):
             util.print_epoch(n_epoch, self.logger)
             self.logger.info('- Learning:')
             # learning step
             self.pi.set_epsilon(self.epsilon)
             self.mdp.set_episode_end(True)
-            self.core.learn(n_steps=self.evaluation_frequency,
-                       n_steps_per_fit=self.train_frequency, quiet=self.quiet)
+            #self.core.learn(n_steps=self.evaluation_frequency,
+            #           n_steps_per_fit=self.train_frequency, quiet=self.quiet)
+            dataset = self.core.learn(n_episodes=1, n_steps_per_fit=self.train_frequency,
+                            quiet=quiet)
+            scores.append(util.get_stats(dataset, self.logger))
 
             if self.save:
                 self.agent.save(self.folder_name + '/agent_' + str(n_epoch) + '.msh')
 
-            self.logger.info('- Evaluation:')
-            # evaluation step
-            self.pi.set_epsilon(self.epsilon_test)
-            self.mdp.set_episode_end(False)
-            dataset = self.core.evaluate(n_steps=self.test_samples, render=self.render,
-                                    quiet=self.quiet)
-            scores.append(util.get_stats(dataset, self.logger))
-
-            np.save(self.folder_name + '/scores.npy', scores)
+            # self.logger.info('- Evaluation:')
+            # # evaluation step
+            # self.pi.set_epsilon(self.epsilon_test)
+            # self.mdp.set_episode_end(False)
+            # dataset = self.core.evaluate(n_steps=self.test_samples, render=self.render,
+            #                         quiet=self.quiet)
+            # scores.append(util.get_stats(dataset, self.logger))
+            #
+            # np.save(self.folder_name + '/scores.npy', scores)
 
         # For each epoch
         for episode in range(total_episodes):
@@ -950,10 +954,8 @@ if __name__ == '__main__':
         # Initializing experiment related params
         experiment_name = experiment_conf.exp_name
         evaluation_metric = experiment_conf.evaluation_metric
-        # TODO actually max_episodes is the max_total_steps
-        max_total_steps = experiment_conf.max_episodes
-        # TODO actually max_steps is the maximun steps before restart the environment.
-        max_steps_before_reset = experiment_conf.max_steps
+        max_episodes = experiment_conf.max_episodes
+        max_steps_per_episode = experiment_conf.max_steps
         action_count_strategy = experiment_conf.action_count_strategy
         shared_initial_states = experiment_conf.shared_initial_states
         trials = experiment_conf.trials
@@ -964,13 +966,13 @@ if __name__ == '__main__':
         # get the start time
         st = time.time()
 
-        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env.spec.name, environment_type, max_total_steps, max_steps_before_reset, action_count_strategy,shared_initial_states, trials)
+        experiment_folder_name = util.get_experiment_folder_name(experiment_name, env.spec.name, environment_type, max_episodes, max_steps_per_episode, action_count_strategy,shared_initial_states, trials)
         print("Starting Experiment: " + experiment_folder_name)
 
         # Variables to store the results on RL policy learning (reward and steps) among trials for each algorithm
         algorithm_names = [""] * number_of_algorithms
-        algorithm_r = np.zeros((number_of_algorithms, trials, max_total_steps))
-        algorithm_steps = np.zeros((number_of_algorithms, trials, max_total_steps))
+        algorithm_r = np.zeros((number_of_algorithms, trials, max_episodes))
+        algorithm_steps = np.zeros((number_of_algorithms, trials, max_episodes))
 
         # Variable to measure CD results of each algorithm performing CD among trials
         causal_qlearning_shd_distances = []  # To store the shd_distances dict for each trial
@@ -1082,7 +1084,7 @@ if __name__ == '__main__':
 
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = agent.crl_learn(
-                        max_total_steps)
+                        max_episodes)
                     alg_shd_distances.append(shd_distances)
 
                     for stage in episode_stage:
@@ -1102,7 +1104,7 @@ if __name__ == '__main__':
                                     use_cuda, save, load_path, render, quiet, debug)
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = agent.learn(
-                        max_total_steps, initial_epsilon_index=0, step_name=Step.RL)
+                        max_episodes, initial_epsilon_index=0, step_name=Step.RL)
 
             print()
             # Plot and save the RL results for the given trial for all algorithms. The episode stage variable only contains

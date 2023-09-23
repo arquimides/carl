@@ -1010,7 +1010,7 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
                  use_cuda=True, save=True, load_path=None, render=False, quiet=False, debug=False)
 
     # Here we use the combination strategy 'Discover once, use forever'
-    carl_dqn_conf = DeepCRLConf("DQN", combination_strategy=combination_strategy_8, screen_width=84, screen_height=84,
+    carl_dqn_conf = DeepCRLConf("CARL-DQN", combination_strategy=combination_strategy_8, screen_width=84, screen_height=84,
                  initial_replay_size=50000, max_replay_size=500000, prioritized=False,
                  optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
                  algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
@@ -1020,11 +1020,11 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
                  max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
                  n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
                  use_cuda=True, save=True, load_path=None, render=False, quiet=False, debug=False,
-                 T=30000, th=0.7, min_frequency=30, model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
+                 T=50, th=0.7, min_frequency=30, model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                  model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                  crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, use_crl_data=True, model_init_path=None)
 
-    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 50000000, 10000, ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf])
+    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 10000, 10000, ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf])
 
     exp_deep_rl_1.append(experiment)
 

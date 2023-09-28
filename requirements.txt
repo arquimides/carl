@@ -1,19 +1,26 @@
+# TODO volver a crear un conda env desde 0 e instalar todas las dependencias en el orden
+# correcto y actualizando las versiones que se puedan
+
 matplotlib~=3.5.1
 numpy~=1.22.1
 rpy2~=3.5.1
-gymnasium~=0.28.1
-pygame~=2.1.2
-ale-py~=0.7.5
+gymnasium~=0.29.1
+pygame~=2.5.2
+ale-py~=0.8.1
 
 # We use Mushroom-RL lib, this lib is configured to use gym but we use gymnasium so we need to made some
 # modifications after install it.
+
+# We need to be carefull after installing Mushroom-rl beacuse it overwritte some of our previously
+# installed libs like ale-py, ect. We need to remove mujoco, dm_control, dm_tree, ect.
+
 # pip3 install mushroom_rl[all]
 
 # After install mushromm_rl we need to manually edit the file
 # mushroom_rl/core/environment.py with the latest version in the github repo
 # And the mushroom_rl/core/core.py file with our local version carl/core.py in line 204 adding the truncated variable to work
 # Line 204: next_state, reward, absorbing, truncated, step_info = self.mdp.step(action)
-# It is etter to replace the entire core.py file with our modified file in the folder replace/core.py
+# It is better to replace the entire core.py file with our modified file in the folder replace/core.py
 
 
 # R an some libs are also required

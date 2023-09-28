@@ -129,13 +129,13 @@ class DeepCRL:
         self.screen_height = screen_height  # Height of the game screen
 
         self.env = env
-        self.states = env.states
-        self.actions = env.actions
-        self.reward_variable_values = env.reward_variable_values
-        self.reward_variable_categories = env.reward_variable_categories
+        self.states = env.unwrapped.states
+        self.actions = env.unwrapped.actions
+        self.reward_variable_values = env.unwrapped.reward_variable_values
+        self.reward_variable_categories = env.unwrapped.reward_variable_categories
         # Counting the number of relational states
         self.relational_states_count = 1
-        for i in env.state_variables_cardinalities:
+        for i in env.unwrapped.state_variables_cardinalities:
             self.relational_states_count *= i
         # Creating a dic to count the number of times each action is performed in a given original state
         self.original_action_count = np.zeros((len(self.states), len(self.actions)))

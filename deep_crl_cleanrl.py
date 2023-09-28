@@ -20,108 +20,58 @@ load_model_function_r = ro.globalenv['load_model']
 dbn_inference_function_r = ro.globalenv['dbn_inference']
 plot_gt_funtion_r = ro.globalenv['plot_ground_truths']
 
-# Imports for Deep-RL
+# Imports for Deep-RL using CleanRL
 import argparse
-import datetime
-import pathlib
+import os
+import random
+from distutils.util import strtobool
+
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
+from stable_baselines3.common.atari_wrappers import (
+    ClipRewardEnv,
+    EpisodicLifeEnv,
+    FireResetEnv,
+    MaxAndSkipEnv,
+    NoopResetEnv,
+)
+from stable_baselines3.common.buffers import ReplayBuffer
+from torch.utils.tensorboard import SummaryWriter
 
-from mushroom_rl.algorithms.value import AveragedDQN, CategoricalDQN, DQN,\
-    DoubleDQN, MaxminDQN, DuelingDQN, NoisyDQN, QuantileDQN, Rainbow
-from mushroom_rl.approximators.parametric import TorchApproximator
-from mushroom_rl.core import Core, Logger
-from mushroom_rl.environments import *
-from mushroom_rl.policy import EpsGreedy
-from mushroom_rl.utils.parameters import LinearParameter, Parameter
-from mushroom_rl.utils.replay_memory import PrioritizedReplayMemory
-
-from atari_gymnasium_wrapper import AtariGymnasiumWrapper
 
 
-class Network(nn.Module):
-    n_features = 512
-
-    def __init__(self, input_shape, output_shape, **kwargs):
+class QNetwork(nn.Module):
+    def __init__(self, env):
         super().__init__()
+        self.network = nn.Sequential(
+            nn.Conv2d(4, 32, 8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(3136, 512),
+            nn.ReLU(),
+            nn.Linear(512, env.single_action_space.n),
+        )
 
-        n_input = input_shape[0]
-        n_output = output_shape[0]
-
-        self._h1 = nn.Conv2d(n_input, 32, kernel_size=8, stride=4)
-        self._h2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self._h3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self._h4 = nn.Linear(3136, self.n_features)
-        self._h5 = nn.Linear(self.n_features, n_output)
-
-        nn.init.xavier_uniform_(self._h1.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h2.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h3.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h4.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h5.weight,
-                                gain=nn.init.calculate_gain('linear'))
-
-    def forward(self, state, action=None):
-        h = F.relu(self._h1(state.float() / 255.))
-        h = F.relu(self._h2(h))
-        h = F.relu(self._h3(h))
-        h = F.relu(self._h4(h.view(-1, 3136)))
-        q = self._h5(h)
-
-        if action is None:
-            return q
-        else:
-            q_acted = torch.squeeze(q.gather(1, action.long()))
-
-            return q_acted
+    def forward(self, x):
+        return self.network(x / 255.0)
 
 
-class FeatureNetwork(nn.Module):
-    def __init__(self, input_shape, output_shape, **kwargs):
-        super().__init__()
-
-        n_input = input_shape[0]
-
-        self._h1 = nn.Conv2d(n_input, 32, kernel_size=8, stride=4)
-        self._h2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self._h3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self._h4 = nn.Linear(3136, Network.n_features)
-
-        nn.init.xavier_uniform_(self._h1.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h2.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h3.weight,
-                                gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self._h4.weight,
-                                gain=nn.init.calculate_gain('relu'))
-
-    def forward(self, state, action=None):
-        h = F.relu(self._h1(state.float() / 255.))
-        h = F.relu(self._h2(h))
-        h = F.relu(self._h3(h))
-        h = F.relu(self._h4(h.view(-1, 3136)))
-
-        return h
+def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
+    slope = (end_e - start_e) / duration
+    return max(slope * t + start_e, end_e)
 
 
 class DeepCRL:
-    def __init__(self, env, screen_width=84, screen_height=84,
-                 initial_replay_size=50000, max_replay_size=500000, prioritized=False,
-                 optimizer='adam', learning_rate=0.0001, decay=0.95, epsilon=1e-8,
-                 algorithm='dqn', n_approximators=1, batch_size=32, history_length=4,
-                 target_update_frequency=10000, evaluation_frequency=250000, train_frequency=4,
-                 max_steps=50000000, final_exploration_frame=1000000, initial_exploration_rate=1.0,
-                 final_exploration_rate=0.1, test_exploration_rate=0.05, test_samples=125000,
-                 max_no_op_actions=30, alpha_coeff=0.6, n_atoms=51, v_min=-10, v_max=10,
-                 n_quantiles=200, n_steps_return=3, sigma_coeff=0.5,
-                 use_cuda=False, save=False, load_path=None, render=False, quiet=False, debug=False):
+    def __init__(self, env, num_envs=1, screen_width=84, screen_height=84, total_time_steps=1000000, learning_rate=1e-4,
+                 buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
+                 target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01, exploration_fraction = 0.10,
+                 learning_start=80000, train_frequency=4):
 
         # Environment
         self.name = env.spec.id  # Gym ID of the Atari game
@@ -129,6 +79,7 @@ class DeepCRL:
         self.screen_height = screen_height  # Height of the game screen
 
         self.env = env
+        self.num_envs = num_envs
         self.states = env.unwrapped.states
         self.actions = env.unwrapped.actions
         self.reward_variable_values = env.unwrapped.reward_variable_values
@@ -142,174 +93,50 @@ class DeepCRL:
         # Creating a dic to count the number of times each action is performed in a given relational state
         self.relational_action_count = np.zeros((len(self.states), len(self.actions)))
 
-        # Replay Memory
-        self.initial_replay_size = initial_replay_size  # Initial size of the replay memory
-        self.max_replay_size = max_replay_size  # Max size of the replay memory
-        self.prioritized = prioritized  # Whether to use prioritized memory or not
+        #  Algorithm
+        self.total_time_steps = total_time_steps  # Total time steps for the algorithm
+        self.learning_rate = learning_rate  # The learning rate of the algorithm
+        self.buffer_size = buffer_size  # The size of the replay memory buffer
+        self.gamma = gamma  # The discount factor gamma
+        self.target_network_update_rate = target_network_update_rate  # The target network update rate
+        self.target_network_update_frequency = target_network_update_frequency  # The frequency of target network updates
+        self.batch_size = batch_size  # The batch size for training
+        self.start_e = start_e  # The starting epsilon for exploration
+        self.end_e = end_e  # The ending epsilon for exploration
+        self.exploration_fraction = exploration_fraction  # The fraction of total time steps for epsilon decay
+        self.learning_start = learning_start  # The time step to start learning
+        self.train_frequency = train_frequency  # The frequency of training
 
-        # Deep Q-Network
-        self.optimizer = optimizer  # Name of the optimizer to use
-        self.learning_rate = learning_rate  # Learning rate value of the optimizer
-        self.decay = decay  # Discount factor for the history coming from the gradient momentum
+        # TRY NOT TO MODIFY: seeding
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = args.torch_deterministic
 
-        # Algorithm
-        self.algorithm = algorithm  # Name of the algorithm
-        self.n_approximators = n_approximators  # Number of approximators used
-        self.batch_size = batch_size  # Batch size for each fit of the network
-        self.history_length = history_length  # Number of frames composing a state
-        self.target_update_frequency = target_update_frequency  # Frequency of target network update
-        self.evaluation_frequency = evaluation_frequency  # Frequency of evaluation
-        self.train_frequency = train_frequency  # Frequency of network training
-        self.max_steps = max_steps  # Total number of collected samples
-        self.final_exploration_frame = final_exploration_frame  # Number of samples for exploration rate decay
-        self.initial_exploration_rate = initial_exploration_rate  # Initial exploration rate
-        self.final_exploration_rate = final_exploration_rate  # Final exploration rate
-        self.test_exploration_rate = test_exploration_rate  # Exploration rate during evaluation
-        self.test_samples = test_samples  # Number of collected samples for each evaluation
-        self.max_no_op_actions = max_no_op_actions  # Maximum number of no-op actions at the beginning of episodes
-        self.alpha_coeff = alpha_coeff  # Prioritization exponent
-        self.n_atoms = n_atoms  # Number of atoms for Categorical DQN
-        self.v_min = v_min  # Minimum action-value for Categorical DQN
-        self.v_max = v_max  # Maximum action-value for Categorical DQN
-        self.n_quantiles = n_quantiles  # Number of quantiles for Quantile Regression DQN
-        self.n_steps_return = n_steps_return  # Number of steps for n-step return for Rainbow
-        self.sigma_coeff = sigma_coeff  # Sigma0 coefficient for noise initialization
+        device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-        # Util
-        self.use_cuda = use_cuda  # Flag specifying whether to use the GPU
-        self.save = save  # Flag specifying whether to save the model
-        self.load_path = load_path  # Path of the model to be loaded
-        self.render = render  # Flag specifying whether to render the game
-        self.quiet = quiet  # Flag specifying whether to hide the progress bar
-        self.debug = debug  # Flag specifying whether the script runs in debug mode
-
-        # Summary folder
-        self.folder_name = './logs/atari_' + algorithm_name + '_' + self.name + \
-                      '_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        pathlib.Path(self.folder_name).mkdir(parents=True)
-
-        self.optimizer = dict()
-        if optimizer == 'adam':
-            self.optimizer['class'] = optim.Adam
-            self.optimizer['params'] = dict(lr=learning_rate,
-                                       eps=epsilon)
-        elif optimizer == 'adadelta':
-            self.optimizer['class'] = optim.Adadelta
-            self.optimizer['params'] = dict(lr=learning_rate,
-                                       eps=epsilon)
-        elif optimizer == 'rmsprop':
-            self.optimizer['class'] = optim.RMSprop
-            self.optimizer['params'] = dict(lr=learning_rate,
-                                       alpha=decay,
-                                       eps=epsilon)
-        elif optimizer == 'rmspropcentered':
-            self.optimizer['class'] = optim.RMSprop
-            self.optimizer['params'] = dict(lr=learning_rate,
-                                       alpha=decay,
-                                       eps=epsilon,
-                                       centered=True)
-
-        # MDP initialization for TaxiAtari
-        self.mdp = AtariGymnasiumWrapper(self.env, screen_width, screen_height,
-                                    ends_at_life=True, history_length=history_length,
-                                    max_no_op_actions=0,max_steps_before_reset=max_steps_per_episode)
-
-        # Policy
-        self.epsilon = LinearParameter(value=initial_exploration_rate,
-                                  threshold_value=final_exploration_rate,
-                                  n=final_exploration_frame)
-        self.epsilon_test = Parameter(value=test_exploration_rate)
-        self.epsilon_random = Parameter(value=1)
-        self.pi = EpsGreedy(epsilon=self.epsilon_random)
-
-        # Approximator
-        self.approximator_params = dict(
-            network=Network if algorithm not in ['dueldqn', 'cdqn', 'ndqn', 'qdqn', 'rainbow'] else FeatureNetwork,
-            input_shape=self.mdp.info.observation_space.shape,
-            output_shape=(self.mdp.info.action_space.n,),
-            n_actions=self.mdp.info.action_space.n,
-            n_features=Network.n_features,
-            optimizer=self.optimizer,
-            use_cuda=use_cuda
+        # env setup
+        envs = gym.vector.SyncVectorEnv(
+            [make_env(args.env_id, "preprocessed", args.seed + i, i, args.capture_video, run_name) for i in
+             range(args.num_envs)]
         )
-        if self.algorithm not in ['cdqn', 'qdqn', 'rainbow']:
-            self.approximator_params['loss'] = F.smooth_l1_loss
+        assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
-        self.approximator = TorchApproximator
+        q_network = QNetwork(envs).to(device)
+        optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
+        target_network = QNetwork(envs).to(device)
+        target_network.load_state_dict(q_network.state_dict())
 
-        # Memory
-        if prioritized:
-            self.replay_memory = PrioritizedReplayMemory(
-                initial_replay_size, max_replay_size, alpha=alpha_coeff,
-                beta=LinearParameter(.4, threshold_value=1,
-                                     n=max_steps // train_frequency)
-            )
-        else:
-            self.replay_memory = None
-
-        # Agent
-        self.algorithm_params = dict(
-            batch_size=batch_size,
-            target_update_frequency=target_update_frequency // train_frequency,
-            replay_memory=self.replay_memory,
-            initial_replay_size=initial_replay_size,
-            max_replay_size=max_replay_size
+        rb = ReplayBuffer(
+            args.buffer_size,
+            envs.single_observation_space,
+            envs.single_action_space,
+            device,
+            optimize_memory_usage=True,
+            handle_timeout_termination=False,
         )
 
-        if algorithm == 'dqn':
-            alg = DQN
-            self.agent = alg(self.mdp.info, self.pi, self.approximator,
-                        approximator_params=self.approximator_params,
-                        **self.algorithm_params)
-        elif algorithm == 'ddqn':
-            alg = DoubleDQN
-            self.agent = alg(self.mdp.info, self.pi, self.approximator,
-                        approximator_params=self.approximator_params,
-                        **self.algorithm_params)
-        elif algorithm == 'adqn':
-            alg = AveragedDQN
-            self.agent = alg(self.mdp.info, self.pi, self.approximator,
-                        approximator_params=self.approximator_params,
-                        n_approximators=n_approximators,
-                        **self.algorithm_params)
-        elif algorithm == 'mmdqn':
-            alg = MaxminDQN
-            self.agent = alg(self.mdp.info, self.pi, self.approximator,
-                        approximator_params=self.approximator_params,
-                        n_approximators=n_approximators,
-                        **self.algorithm_params)
-        elif algorithm == 'dueldqn':
-            alg = DuelingDQN
-            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
-                        **self.algorithm_params)
-        elif algorithm == 'cdqn':
-            alg = CategoricalDQN
-            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
-                        n_atoms=n_atoms, v_min=v_min,
-                        v_max=v_max, **self.algorithm_params)
-        elif algorithm == 'ndqn':
-            alg = NoisyDQN
-            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
-                        sigma_coeff=sigma_coeff, **self.algorithm_params)
-        elif algorithm == 'qdqn':
-            alg = QuantileDQN
-            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
-                        n_quantiles=n_quantiles, **self.algorithm_params)
-        elif algorithm == 'rainbow':
-            alg = Rainbow
-            beta = LinearParameter(.4, threshold_value=1, n=max_steps // train_frequency)
-            self.agent = alg(self.mdp.info, self.pi, approximator_params=self.approximator_params,
-                        n_atoms=n_atoms, v_min=v_min,
-                        v_max=v_max, n_steps_return=n_steps_return,
-                        alpha_coeff=alpha_coeff, beta=beta,
-                        sigma_coeff=sigma_coeff, **self.algorithm_params)
 
-        self.logger = Logger(alg.__name__, results_dir=None)
-        self.logger.strong_line()
-        self.logger.info('Experiment Algorithm: ' + alg.__name__)
-
-        # Algorithm
-        self.core = Core(self.agent, self.mdp)
 
     def crl_learn(self, max_ep, random_initial_states):
 
@@ -532,49 +359,6 @@ class DeepCRL:
         scores = list()
 
         # RUN
-
-        # Fill replay memory with a number of interactions depending on the step_name
-        # TODO Do this only if the memory is empty
-        # util.print_epoch(0, self.logger)
-        # #self.core.learn(n_steps=self.initial_replay_size, n_steps_per_fit=self.initial_replay_size, quiet=quiet)
-        # self.core.learn(n_episodes=10, n_episodes_per_fit=10, quiet=quiet)
-        #
-        # if self.save:
-        #     self.agent.save(self.folder_name + '/agent_0.msh')
-        #
-        # # Evaluate initial policy
-        # self.pi.set_epsilon(self.epsilon_test)
-        # self.mdp.set_episode_end(False)
-        # dataset = self.core.evaluate(n_steps=test_samples, render=self.render, quiet=self.quiet)
-        # scores.append(util.get_stats(dataset, self.logger))
-        #
-        # np.save(self.folder_name + '/scores.npy', scores)
-
-        # For each episode
-        for n_epoch in range(1, max_steps // self.evaluation_frequency + 1):
-            util.print_epoch(n_epoch, self.logger)
-            self.logger.info('- Learning:')
-            # learning step
-            self.pi.set_epsilon(self.epsilon)
-            self.mdp.set_episode_end(True)
-            #self.core.learn(n_steps=self.evaluation_frequency,
-            #           n_steps_per_fit=self.train_frequency, quiet=self.quiet)
-            dataset = self.core.learn(n_episodes=1, n_steps_per_fit=self.train_frequency,
-                            quiet=quiet)
-            scores.append(util.get_stats(dataset, self.logger))
-
-            if self.save:
-                self.agent.save(self.folder_name + '/agent_' + str(n_epoch) + '.msh')
-
-            # self.logger.info('- Evaluation:')
-            # # evaluation step
-            # self.pi.set_epsilon(self.epsilon_test)
-            # self.mdp.set_episode_end(False)
-            # dataset = self.core.evaluate(n_steps=self.test_samples, render=self.render,
-            #                         quiet=self.quiet)
-            # scores.append(util.get_stats(dataset, self.logger))
-            #
-            # np.save(self.folder_name + '/scores.npy', scores)
 
         # For each epoch
         for episode in range(total_episodes):
@@ -938,7 +722,7 @@ if __name__ == '__main__':
         reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
 
         # Environment Initialization
-        env = gym.make(environment_name, render_mode = "rgb_array", env_type = environment_type, reward_type = reward_type, render_fps=64)
+        env = gym.make(environment_name, render_mode = "preprocessed", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
         results_folder = "Deep RL experiments"
@@ -999,47 +783,23 @@ if __name__ == '__main__':
                 algorithm_names[a] = alg_name
                 combination_strategy = algorithm.combination_strategy
 
-                # Params for Deep-Rl algorithm part
                 screen_width = algorithm.screen_width  # Width of the game screen
                 screen_height = algorithm.screen_height  # Height of the game screen
-                # Replay Memory
-                initial_replay_size = algorithm.initial_replay_size  # Initial size of the replay memory
-                max_replay_size = algorithm.max_replay_size  # Max size of the replay memory
-                prioritized = algorithm.prioritized  # Whether to use prioritized memory or not
-                # Deep Q-Network
-                optimizer = algorithm.optimizer  # Name of the optimizer to use
-                learning_rate = algorithm.learning_rate  # Learning rate value of the optimizer
-                decay = algorithm.decay  # Discount factor for the history coming from the gradient momentum
-                epsilon = algorithm.epsilon  # Epsilon term used in optimizer
-                # Algorithm
-                algorithm_name = algorithm.algorithm  # Name of the algorithm
-                n_approximators = algorithm.n_approximators  # Number of approximators used
-                batch_size = algorithm.batch_size  # Batch size for each fit of the network
-                history_length = algorithm.history_length  # Number of frames composing a state
-                target_update_frequency = algorithm.target_update_frequency  # Frequency of target network update
-                evaluation_frequency = algorithm.evaluation_frequency  # Frequency of evaluation
-                train_frequency = algorithm.train_frequency  # Frequency of network training
-                max_steps = algorithm.max_steps  # Total number of collected samples
-                final_exploration_frame = algorithm.final_exploration_frame  # Number of samples for exploration rate decay
-                initial_exploration_rate = algorithm.initial_exploration_rate  # Initial exploration rate
-                final_exploration_rate = algorithm.final_exploration_rate  # Final exploration rate
-                test_exploration_rate = algorithm.test_exploration_rate  # Exploration rate during evaluation
-                test_samples = algorithm.test_samples  # Number of collected samples for each evaluation
-                max_no_op_actions = algorithm.max_no_op_actions  # Maximum number of no-op actions at the beginning of episodes
-                alpha_coeff = algorithm.alpha_coeff  # Prioritization exponent
-                n_atoms = algorithm.n_atoms  # Number of atoms for Categorical DQN
-                v_min = algorithm.v_min  # Minimum action-value for Categorical DQN
-                v_max = algorithm.v_max  # Maximum action-value for Categorical DQN
-                n_quantiles = algorithm.n_quantiles  # Number of quantiles for Quantile Regression DQN
-                n_steps_return = algorithm.n_steps_return  # Number of steps for n-step return for Rainbow
-                sigma_coeff = algorithm.sigma_coeff  # Sigma0 coefficient for noise initialization
-                # Util
-                use_cuda = algorithm.use_cuda  # Flag specifying whether to use the GPU
-                save = algorithm.save  # Flag specifying whether to save the model
-                load_path = algorithm.load_path  # Path of the model to be loaded
-                render = algorithm.render  # Flag specifying whether to render the game
-                quiet = algorithm.quiet  # Flag specifying whether to hide the progress bar
-                debug = algorithm.debug  # Flag specifying whether the script runs in debug mode
+
+                #  Algorithm
+                total_time_steps = algorithm.total_time_steps  # Total time steps for the algorithm
+                learning_rate = algorithm.learning_rate  # The learning rate of the algorithm
+                buffer_size = algorithm.buffer_size  # The size of the replay memory buffer
+                gamma = algorithm.gamma  # The discount factor gamma
+                target_network_update_rate = algorithm.target_network_update_rate  # The target network update rate
+                target_network_update_frequency = algorithm.target_network_update_frequency  # The frequency of target network updates
+                batch_size = algorithm.batch_size  # The batch size for training
+                start_e = algorithm.start_e  # The starting epsilon for exploration
+                end_e = algorithm.end_e  # The ending epsilon for exploration
+                exploration_fraction = algorithm.exploration_fraction  # The fraction of total time steps for epsilon decay
+                learning_start = algorithm.learning_start  # The time step to start learning
+                train_frequency = algorithm.train_frequency  # The frequency of training
+
 
                 # Parameters for Causal-RL
                 if isinstance(algorithm, DeepCRLConf):
@@ -1072,16 +832,15 @@ if __name__ == '__main__':
 
                 print("\nStarting algorithm {}. {}".format(a+1, alg_name))
 
+                # Initializing the agent
+                agent = DeepCRL(env, 1, screen_width, screen_height, learning_rate, buffer_size, gamma,
+                                target_network_update_rate,
+                                target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
+                                learning_start, train_frequency)
+
                 # Check if algorithm is CRL first because CRL extend RL
                 if isinstance(algorithm, DeepCRLConf):
                     # Do Deep Reinforcement Learning with CARL
-                    agent = DeepCRL(env,screen_width, screen_height, initial_replay_size, max_replay_size, prioritized, optimizer,
-                                        learning_rate, decay, epsilon, algorithm_name, n_approximators, batch_size, history_length,
-                                        target_update_frequency, evaluation_frequency, train_frequency, max_steps, final_exploration_frame,
-                                        initial_exploration_rate, final_exploration_rate, test_exploration_rate, test_samples, max_no_op_actions,
-                                        alpha_coeff, n_atoms, v_min, v_max, n_quantiles, n_steps_return, sigma_coeff, use_cuda, save, load_path,
-                                        render, quiet, debug)
-
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = agent.crl_learn(
                         max_episodes)
@@ -1096,21 +855,16 @@ if __name__ == '__main__':
 
                 else: #isinstance(algorithm, DeepRLConf):
                     # Do traditional Deep Reinforcement Learning without using any model
-                    agent = DeepCRL(env,screen_width, screen_height, initial_replay_size, max_replay_size, prioritized,
-                                    optimizer, learning_rate, decay, epsilon, algorithm_name, n_approximators, batch_size,
-                                    history_length, target_update_frequency, evaluation_frequency, train_frequency, max_steps,
-                                    final_exploration_frame, initial_exploration_rate, final_exploration_rate, test_exploration_rate,
-                                    test_samples, max_no_op_actions, alpha_coeff, n_atoms, v_min, v_max, n_quantiles, n_steps_return, sigma_coeff,
-                                    use_cuda, save, load_path, render, quiet, debug)
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = agent.learn(
                         max_episodes, initial_epsilon_index=0, step_name=Step.RL)
 
             print()
+
             # Plot and save the RL results for the given trial for all algorithms. The episode stage variable only contains
             # the stages of the last algorithm to run
             util.plot_rl_results(algorithm_names, algorithm_r[:, t], algorithm_steps[:, t], None, None,
-                                 results_folder + "/" + experiment_sub_folder_name + "/" + rl_result_folder, epsilon_start,
+                                 results_folder + "/" + experiment_sub_folder_name + "/" + rl_result_folder, start_e,
                                  evaluation_metric, epsilon_values, episode_stage, smooth)
 
             if len(alg_doing_cd_name) > 0:

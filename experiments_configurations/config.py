@@ -89,11 +89,10 @@ class AlgConf:
 
 
 class DeepRLConf(AlgConf):
-    def __init__(self, alg_name, combination_strategy, screen_width=84, screen_height=84,
-                 learning_rate=1e-4, buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
-                 target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01,
-                 exploration_fraction=0.10,
-                 learning_start=80000, train_frequency=4):
+    def __init__(self, alg_name, combination_strategy, screen_width, screen_height,
+                 learning_rate, buffer_size, gamma, target_network_update_rate,
+                 target_network_update_frequency, batch_size, start_e, end_e,
+                 exploration_fraction, learning_start, train_frequency, rl_action_selection_strategy, episode_state_initialization):
 
         super().__init__(alg_name, combination_strategy)
 
@@ -110,21 +109,23 @@ class DeepRLConf(AlgConf):
         self.exploration_fraction = exploration_fraction  # The fraction of total time steps for epsilon decay
         self.learning_start = learning_start  # The time step to start learning
         self.train_frequency = train_frequency  # The frequency of training
+        self.rl_action_selection_strategy = rl_action_selection_strategy
+        self.episode_state_initialization = episode_state_initialization
 
 
 
 class DeepCRLConf(DeepRLConf):
-    def __init__(self, alg_name, combination_strategy, screen_width=84, screen_height=84,
-                 learning_rate=1e-4, buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
-                 target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01,
-                 exploration_fraction=0.10, learning_start=80000, train_frequency=4,
-                 T=30000, th=0.7, min_frequency=30, model_use_strategy=None, model_discovery_strategy=None,
-                 crl_action_selection_strategy=None, use_crl_data=True, model_init_path=None):
+    def __init__(self, alg_name, combination_strategy, screen_width, screen_height,
+                 learning_rate, buffer_size, gamma, target_network_update_rate,
+                 target_network_update_frequency, batch_size, start_e, end_e,
+                 exploration_fraction, learning_start, train_frequency, rl_action_selection_strategy, episode_state_initialization,
+                 T, th, min_frequency, model_use_strategy, model_discovery_strategy,
+                 crl_action_selection_strategy, use_crl_data, model_init_path):
 
         super().__init__(alg_name, combination_strategy, screen_width, screen_height,
                          learning_rate, buffer_size, gamma, target_network_update_rate,
                          target_network_update_frequency, batch_size, start_e, end_e,
-                         exploration_fraction, learning_start, train_frequency)
+                         exploration_fraction, learning_start, train_frequency, rl_action_selection_strategy, episode_state_initialization)
 
         # CARL related
         self.T = T
@@ -956,18 +957,20 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
     dqn_conf = DeepRLConf("DQN", combination_strategy=combination_strategy_7, screen_width=84, screen_height=84,
                  learning_rate=1e-4, buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
                  target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01, exploration_fraction=0.10,
-                 learning_start=80000, train_frequency=4)
+                 learning_start=80000, train_frequency=4, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
+                 episode_state_initialization=EpisodeStateInitialization.EPISODE_NUMBER)
 
     # Here we use the combination strategy 'Discover once, use forever'
     carl_dqn_conf = DeepCRLConf("DQN", combination_strategy=combination_strategy_8, screen_width=84, screen_height=84,
                  learning_rate=1e-4, buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
                  target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01, exploration_fraction=0.10,
-                 learning_start=80000, train_frequency=4,
-                 T=50000, th=0.7, min_frequency=30, model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
+                 learning_start=80000, train_frequency=4, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
+                 episode_state_initialization=EpisodeStateInitialization.EPISODE_NUMBER,
+                 T=1000, th=0.7, min_frequency=30, model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                  model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                  crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY, use_crl_data=True, model_init_path=None)
 
-    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 15000000, 1000, ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf])
+    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10, EvaluationMetric.EPISODE_REWARD, 150000, 1000, ActionCountStrategy.Relational, True, [carl_dqn_conf, dqn_conf])
 
     exp_deep_rl_1.append(experiment)
 

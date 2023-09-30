@@ -40,8 +40,6 @@ from stable_baselines3.common.atari_wrappers import (
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
-
-
 class QNetwork(nn.Module):
     def __init__(self, env):
         super().__init__()
@@ -68,10 +66,10 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 
 
 class DeepCRL:
-    def __init__(self, env, num_envs=1, screen_width=84, screen_height=84, total_time_steps=1000000, learning_rate=1e-4,
-                 buffer_size=500000, gamma=0.99, target_network_update_rate=1.,
-                 target_network_update_frequency=10000, batch_size=32, start_e=1.0, end_e=0.01, exploration_fraction = 0.10,
-                 learning_start=80000, train_frequency=4):
+    def __init__(self, env, num_envs, screen_width, screen_height, learning_rate,
+                 buffer_size, gamma, target_network_update_rate,
+                 target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
+                 learning_start, train_frequency):
 
         # Environment
         self.name = env.spec.id  # Gym ID of the Atari game
@@ -94,7 +92,6 @@ class DeepCRL:
         self.relational_action_count = np.zeros((len(self.states), len(self.actions)))
 
         #  Algorithm
-        self.total_time_steps = total_time_steps  # Total time steps for the algorithm
         self.learning_rate = learning_rate  # The learning rate of the algorithm
         self.buffer_size = buffer_size  # The size of the replay memory buffer
         self.gamma = gamma  # The discount factor gamma
@@ -108,37 +105,61 @@ class DeepCRL:
         self.train_frequency = train_frequency  # The frequency of training
 
         # TRY NOT TO MODIFY: seeding
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.backends.cudnn.deterministic = args.torch_deterministic
+        self.seed_value = 1
+        self.capture_video = False
+        random.seed(self.seed_value)
+        np.random.seed(self.seed_value)
+        torch.manual_seed(self.seed_value)
+        torch.backends.cudnn.deterministic = True
+        cuda = True
 
-        device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() and cuda else "cpu")
 
         # env setup
-        envs = gym.vector.SyncVectorEnv(
-            [make_env(args.env_id, "preprocessed", args.seed + i, i, args.capture_video, run_name) for i in
-             range(args.num_envs)]
+        self.envs = gym.vector.SyncVectorEnv(
+            [self.make_env( i, self.capture_video, self.name) for i in
+             range(self.num_envs)]
         )
-        assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+        assert isinstance(self.envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
-        q_network = QNetwork(envs).to(device)
-        optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
-        target_network = QNetwork(envs).to(device)
-        target_network.load_state_dict(q_network.state_dict())
+        self.q_network = QNetwork(self.envs).to(self.device)
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
+        self.target_network = QNetwork(self.envs).to(self.device)
+        self.target_network.load_state_dict(self.q_network.state_dict())
 
-        rb = ReplayBuffer(
-            args.buffer_size,
-            envs.single_observation_space,
-            envs.single_action_space,
-            device,
+        self.rb = ReplayBuffer(
+            self.buffer_size,
+            self.envs.single_observation_space,
+            self.envs.single_action_space,
+            self.device,
             optimize_memory_usage=True,
             handle_timeout_termination=False,
         )
 
+        self.global_step = 0
+
+    def make_env(self, idx, capture_video, run_name):
+        def thunk():
+            # the original env
+            env = self.env
+
+            # Add some wrappers to the environment
+            if capture_video and idx == 0:
+                env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+
+            env = gym.wrappers.RecordEpisodeStatistics(env)
+            # if render_mode == "rgb_array":
+            env = gym.wrappers.ResizeObservation(env, (84, 84))
+            env = gym.wrappers.GrayScaleObservation(env)
+            env = gym.wrappers.FrameStack(env, 4)
+            env.action_space.seed(self.seed_value)
+
+            return env
+
+        return thunk
 
 
-    def crl_learn(self, max_ep, random_initial_states):
+    def crl_learn(self, max_ep):
 
         episode_reward = []  # cumulative reward
         steps_per_episode = []  # steps per episodes
@@ -229,7 +250,7 @@ class DeepCRL:
 
                             c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
                                 step_length_in_episodes,
-                                actual_episodes, step, random_initial_states)
+                                actual_episodes, step)
 
                             # Add the RL observations in record to the cumulative data_set
                             for action in self.actions:
@@ -252,7 +273,7 @@ class DeepCRL:
                                 (Step.RL_USING_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
 
                             c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
-                                step_length_in_episodes, actual_episodes, step, random_initial_states, causal_models)
+                                step_length_in_episodes, actual_episodes, step, causal_models)
                             actions_by_model_count_list.append(c_actions_by_model_count)
                             good_actions_by_model_count_list.append(c_good_actions_by_model_count)
 
@@ -278,7 +299,7 @@ class DeepCRL:
                                 (Step.RL_FOR_CD.value, actual_episodes, actual_episodes + step_length_in_episodes))
 
                             c_qlearning_r, c_qlearning_steps, c_record, c_actions_by_model_count, c_good_actions_by_model_count, epi_sta = self.learn(
-                                step_length_in_episodes, actual_episodes, step, random_initial_states)
+                                step_length_in_episodes, actual_episodes, step)
 
                             # Add the RL observations in record to the cumulative data_set
                             for action in self.actions:
@@ -322,9 +343,6 @@ class DeepCRL:
     def learn(self, total_episodes, initial_epsilon_index, step_name, causal_models=None):
         """ Perform Deep-RL learning, return episode_reward, episode_steps, and record of rl_data """
 
-        # Set the core to perform the corresponding CARL stage0
-        self.core.step_name = step_name
-
         episode_reward = []  # cumulative reward
         steps_per_episode = []  # steps per episodes
         episode_stage = []  # to store the corresponding stage on each episode
@@ -356,35 +374,21 @@ class DeepCRL:
         if action_count_strategy == ActionCountStrategy.Relational:
             action_count = self.relational_action_count
 
-        scores = list()
-
         # RUN
-
-        # For each epoch
+        # For each episode
         for episode in range(total_episodes):
 
-            if not shared_initial_states:
-                random_initial_states = None
-
-            if random_initial_states is not None:
-                start_state, _ = self.env.reset(options={'state_index': random_initial_states[initial_epsilon_index + episode], 'state_type': "original"})
-            elif episode_state_initialization == EpisodeStateInitialization.SAME:
-                start_state, _ = self.env.reset(options={'state_index': episode_state_initialization.value, 'state_type': "original"})
-            elif episode_state_initialization == EpisodeStateInitialization.RANDOM:
-                start_state, _ = self.env.reset(seed = seed)
-            elif episode_state_initialization == EpisodeStateInitialization.EPISODE_NUMBER:
-                start_state, _ = self.env.reset(options={'state_index': initial_epsilon_index + episode, 'state_type': "original"})
-            elif episode_state_initialization == EpisodeStateInitialization.RELATIONAL_EPISODE_NUMBER:
-                start_state, _ = self.env.reset(options={'state_index': initial_epsilon_index + episode, 'state_type': "original"})
+            obs, info = self.envs.reset(seed=self.seed_value, options={'state_index': episode, 'state_type': "original"})
+            start_state = info['integer_state']
 
             # self.env.render()
             self.states = self.env.states  # Updating the state list in relational representation
 
             steps = 0
             cumulative_reward = 0
-            terminated = False
+            done = False
 
-            while steps < self.max_steps and not terminated:
+            while steps < max_steps_per_episode and not done:
 
                 # s = self.states.index(current_state)  # Parsing the state to a given index
                 s = self.env.s
@@ -400,14 +404,6 @@ class DeepCRL:
                         if i+1 < len(self.states[s]):
                             rl_index *= self.env.state_variables_cardinalities[i+1]
                     state_index = rl_index
-
-                # self.env.render(mode = "human",
-                #     info={'episode_number': str(episode), 'step_number': str(steps), "reward": str(cumulative_reward)})
-
-                # Uncomment to export the given frame to a file
-                # plt.imshow(frame)
-                # plt.axis('off')
-                # plt.savefig('frame.png', bbox_inches='tight', pad_inches=0)
 
                 a = None
                 action_indexes = []
@@ -446,32 +442,33 @@ class DeepCRL:
                         if crl_action_selection_strategy == ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY:
 
                             # Then, use the same epsilon-greedy policy to select among the filtered actions_indexes
-                            if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:  # Explore
+                            if random.random() < epsilon_values[initial_epsilon_index + episode]:  # Explore
                                 a = np.random.choice(action_indexes)
                                 # a = self.actions.index(np.random.choice(self.actions))
                                 # a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],action_indexes))
                             else:  # Exploit selecting the best action according Q
-                                a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
-                                #a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0], action_indexes))
-
-                        elif crl_action_selection_strategy == ActionSelectionStrategy.NEW_IDEA:
-
-                            # If we know the model is good, we can set the Q-values for non-filtered actions to negative
-                            first = np.arange(len(self.actions))
-                            second = np.array(action_indexes)
-                            diff = np.setdiff1d(first, second)
-                            self.q[s, diff] = -1000.0
-
-                            # Then, use the same epsilon-greedy policy to select among the filtered actions_indexes
-                            if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:  # Explore
-                                a = np.random.choice(action_indexes)
-                                # a = self.actions.index(np.random.choice(self.actions))
-                                # a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],action_indexes))
-                            else:  # Exploit selecting the best action according Q
-                                # a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
-                                a = np.random.choice(
-                                    np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],
-                                                   action_indexes))
+                                #a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                                q_values = self.q_network(torch.Tensor(obs).to(self.device))
+                                actions = torch.argmax(q_values, dim=1).cpu().numpy()
+                                a = actions[0]
+                        # elif crl_action_selection_strategy == ActionSelectionStrategy.NEW_IDEA:
+                        #
+                        #     # If we know the model is good, we can set the Q-values for non-filtered actions to negative
+                        #     first = np.arange(len(self.actions))
+                        #     second = np.array(action_indexes)
+                        #     diff = np.setdiff1d(first, second)
+                        #     self.q[s, diff] = -1000.0
+                        #
+                        #     # Then, use the same epsilon-greedy policy to select among the filtered actions_indexes
+                        #     if random.random() < self.epsilon_values[initial_epsilon_index + episode]:  # Explore
+                        #         a = np.random.choice(action_indexes)
+                        #         # a = self.actions.index(np.random.choice(self.actions))
+                        #         # a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],action_indexes))
+                        #     else:  # Exploit selecting the best action according Q
+                        #         # a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                        #         a = np.random.choice(
+                        #             np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],
+                        #                            action_indexes))
 
                         elif crl_action_selection_strategy == ActionSelectionStrategy.RANDOM_MODEL_BASED:
                             # This is another option, always select a random action among the suggested by the model
@@ -496,7 +493,7 @@ class DeepCRL:
 
                     if model_discovery_strategy == ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY:
                         # Then, use the same epsilon-greedy policy
-                        if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:
+                        if random.random() < epsilon_values[initial_epsilon_index + episode]:
                             # Explore but considering the best action for CD
 
                             candidates_actions = np.where(action_count[state_index] < min_frequency)
@@ -517,22 +514,27 @@ class DeepCRL:
                             #     a = self.actions.index(np.random.choice(self.actions))
 
                         else:  # Exploit selecting the best action according Q
-                            a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
-                            # a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],action_indexes))
+                            #a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                            q_values = self.q_network(torch.Tensor(obs).to(self.device))
+                            actions = torch.argmax(q_values, dim=1).cpu().numpy()
+                            a = actions[0]
 
-                    elif model_discovery_strategy == ModelDiscoveryStrategy.NEW_IDEA:
-                        # Aqui una idea puede ser hacer siempre acciones que considero importantes para
-                        # CD independientemente de epsilon y de lo que diga Q.
-                        a = np.random.choice(np.where(action_count[state_index] == np.min(action_count[state_index]))[0])
-
-                    elif model_discovery_strategy == ModelDiscoveryStrategy.RANDOM:
-                        a = self.actions.index(np.random.choice(self.actions))
+                    # elif model_discovery_strategy == ModelDiscoveryStrategy.NEW_IDEA:
+                    #     # Aqui una idea puede ser hacer siempre acciones que considero importantes para
+                    #     # CD independientemente de epsilon y de lo que diga Q.
+                    #     a = np.random.choice(np.where(action_count[state_index] == np.min(action_count[state_index]))[0])
+                    #
+                    # elif model_discovery_strategy == ModelDiscoveryStrategy.RANDOM:
+                    #     a = self.actions.index(np.random.choice(self.actions))
 
                     elif model_discovery_strategy == ModelDiscoveryStrategy.EPSILON_GREEDY:
-                        if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:  # Explore
+                        if random.random() < epsilon_values[initial_epsilon_index + episode]:  # Explore
                             a = self.actions.index(np.random.choice(self.actions))
                         else:  # Exploit
-                            a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                            #a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                            q_values = self.q_network(torch.Tensor(obs).to(self.device))
+                            actions = torch.argmax(q_values, dim=1).cpu().numpy()
+                            a = actions[0]
 
                     else: # Model discovery strategy is to select the same action always
                         a = model_discovery_strategy.value
@@ -542,37 +544,94 @@ class DeepCRL:
                     do_rl = False
 
                     if rl_action_selection_strategy == ActionSelectionStrategy.EPSILON_GREEDY:
-                        if np.random.uniform() < self.epsilon_values[initial_epsilon_index + episode]:
+                        if random.random() < epsilon_values[initial_epsilon_index + episode]:
                             # Explore
-                            a = self.actions.index(np.random.choice(self.actions))
-
+                            # a = self.actions.index(np.random.choice(self.actions))
+                            actions = np.array([self.envs.single_action_space.sample() for _ in range(self.envs.num_envs)])
+                            a = actions[0]
                         else:  # Exploit
-                            a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                            #a = np.random.choice(np.where(self.q[s] == np.max(self.q[s]))[0])
+                            q_values = self.q_network(torch.Tensor(obs).to(self.device))
+                            actions = torch.argmax(q_values, dim=1).cpu().numpy()
+                            a = actions[0]
 
                 # Update the action_count variable
                 #if step_name == Step.RL_FOR_CD:
                 action_count[state_index, a] += 1
 
                 # Take action, observe outcome
-                observation, reward, terminated, truncated, info = self.env.step(a)
+                #observation, reward, terminated, truncated, info = self.env.step(a)
+                try:
+                    next_obs, rewards, terminated, truncated, infos = self.envs.step(actions)
+                except:
+                    next_obs, rewards, terminated, truncated, infos = self.envs.step(np.array([a]))
 
-                # s_prime = self.states.index(next_state)
-                s_prime = observation
+                done = terminated[0] or truncated[0]
+                self.global_step = self.global_step + 1
+
+                # TRY NOT TO MODIFY: record rewards and other metrics for plotting purposes
+                if "final_info" in infos:
+                    for info in infos["final_info"]:
+                        # Skip the envs that are not done
+                        if "episode" not in info:
+                            continue
+                        print(f"global_episode={self.global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], self.global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], self.global_step)
+                        writer.add_scalar("charts/epsilon", epsilon_values[initial_epsilon_index + episode], self.global_step)
+
+                # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
+                real_next_obs = next_obs.copy()
+                for idx, d in enumerate(truncated):
+                    if d:
+                        real_next_obs[idx] = infos["final_observation"][idx]
+                try:
+                    self.rb.add(obs, real_next_obs, actions, rewards, terminated, infos)
+                except:
+                    self.rb.add(obs, real_next_obs, np.array([a]), rewards, terminated, infos)
+
+                # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
+                obs = next_obs
+
+                s_prime = infos["integer_state"][0]
 
                 # Save the info for causal discovery
                 record[self.actions[a]]["all_states_i"].append(self.states[s])
                 record[self.actions[a]]["all_states_j"].append(self.states[s_prime])
                 record[self.actions[a]]["all_rewards"].append(
-                    self.reward_variable_categories[self.reward_variable_values.index(reward)])
+                    self.reward_variable_categories[self.reward_variable_values.index(rewards[0])])
 
                 steps = steps + 1
-                cumulative_reward = cumulative_reward + reward
+                cumulative_reward = cumulative_reward + rewards[0]
 
-                # Q-Learning
-                update = self.alpha * (reward + self.gamma * np.max(self.q[s_prime]) - self.q[s, a])
-                self.q[s, a] += update
+                # ALGO LOGIC: training.
+                if self.global_step > self.learning_start:
+                    if self.global_step % self.train_frequency == 0:
+                        data = self.rb.sample(self.batch_size)
+                        with torch.no_grad():
+                            target_max, _ = self.target_network(data.next_observations).max(dim=1)
+                            td_target = data.rewards.flatten() + self.gamma * target_max * (1 - data.dones.flatten())
+                        old_val = self.q_network(data.observations).gather(1, data.actions).squeeze()
+                        loss = F.mse_loss(td_target, old_val)
 
-                # Set state for next loop. NOT NECESSARY ANY MORE
+                        if self.global_step % 100 == 0:
+                            writer.add_scalar("losses/td_loss", loss, self.global_step)
+                            writer.add_scalar("losses/q_values", old_val.mean().item(), self.global_step)
+                            print("SPS:", int(self.global_step / (time.time() - start_time)))
+                            writer.add_scalar("charts/SPS", int(self.global_step / (time.time() - start_time)), self.global_step)
+
+                        # optimize the model
+                        self.optimizer.zero_grad()
+                        loss.backward()
+                        self.optimizer.step()
+
+                    # update target network
+                    if self.global_step % self.target_network_update_frequency == 0:
+                        for target_network_param, q_network_param in zip(self.target_network.parameters(),
+                                                                         self.q_network.parameters()):
+                            target_network_param.data.copy_(
+                                self.target_network_update_rate * q_network_param.data + (1.0 - self.target_network_update_rate) * target_network_param.data
+                            )
 
             # Add the corresponding evaluation metric for later plotting
             if evaluation_metric == EvaluationMetric.EPISODE_REWARD:
@@ -586,7 +645,7 @@ class DeepCRL:
 
             if print_info:
 
-                if steps != self.max_steps:
+                if steps != max_steps_per_episode:
                     sys.stdout.write(
                         "\rEpisode {} Step {}. The agent completed the task in {} steps".format(
                             initial_epsilon_index + episode, step_name.value, steps))
@@ -768,6 +827,8 @@ if __name__ == '__main__':
             print("\nStarting Trial: " + str(t + 1))
             experiment_sub_folder_name = experiment_folder_name + "/trial " + str(t + 1)
 
+            writer = SummaryWriter(f"runs/{experiment_sub_folder_name}")
+
             alg_doing_cd_name = []  # to store the name of the algorithms doing CD
             alg_shd_distances = []
             alg_episode_stages = []
@@ -787,7 +848,6 @@ if __name__ == '__main__':
                 screen_height = algorithm.screen_height  # Height of the game screen
 
                 #  Algorithm
-                total_time_steps = algorithm.total_time_steps  # Total time steps for the algorithm
                 learning_rate = algorithm.learning_rate  # The learning rate of the algorithm
                 buffer_size = algorithm.buffer_size  # The size of the replay memory buffer
                 gamma = algorithm.gamma  # The discount factor gamma
@@ -799,6 +859,9 @@ if __name__ == '__main__':
                 exploration_fraction = algorithm.exploration_fraction  # The fraction of total time steps for epsilon decay
                 learning_start = algorithm.learning_start  # The time step to start learning
                 train_frequency = algorithm.train_frequency  # The frequency of training
+
+                rl_action_selection_strategy = algorithm.rl_action_selection_strategy
+                episode_state_initialization = algorithm.episode_state_initialization
 
 
                 # Parameters for Causal-RL
@@ -814,18 +877,11 @@ if __name__ == '__main__':
                     use_crl_data = algorithm.use_crl_data
                     model_init_path = algorithm.model_init_path
 
-                # # Precalculating the epsilon values for all episodes
-                # epsilon_values = []
-                # epsilon_decay_rate = (epsilon_start - epsilon_end) / max_episodes
-                #
-                # for epi in range(max_episodes):
-                #     epsilon_values.append(epsilon_start - epi * epsilon_decay_rate)
-                #
-                #     # if epsilon_strategy == EpsilonStrategy.DECAYED:
-                #     #     # epsilon decreases exponentially --> our agent will explore less and less
-                #     #     epsilon_values.append(epsilon * np.exp(-decay_rate * epi))
-                #     # elif epsilon_strategy == EpsilonStrategy.FIXED:
-                #     #     epsilon_values.append(epsilon)
+                # Precalculating the epsilon values for all episodes
+                epsilon_values = []
+                for epi in range(max_episodes):
+                    epsilon_values.append(
+                    linear_schedule(start_e, end_e, exploration_fraction * max_episodes, epi))
 
                 # Reset the environment before to start, this can be always original because we are goin to restart again later
                 env.reset(options={'state_index': 0, 'state_type': "original"})
@@ -834,13 +890,13 @@ if __name__ == '__main__':
 
                 # Initializing the agent
                 agent = DeepCRL(env, 1, screen_width, screen_height, learning_rate, buffer_size, gamma,
-                                target_network_update_rate,
-                                target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
+                                target_network_update_rate, target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
                                 learning_start, train_frequency)
 
                 # Check if algorithm is CRL first because CRL extend RL
                 if isinstance(algorithm, DeepCRLConf):
                     # Do Deep Reinforcement Learning with CARL
+                    start_time = time.time()
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, shd_distances, episode_stage = agent.crl_learn(
                         max_episodes)
@@ -855,9 +911,39 @@ if __name__ == '__main__':
 
                 else: #isinstance(algorithm, DeepRLConf):
                     # Do traditional Deep Reinforcement Learning without using any model
+                    start_time = time.time()
                     algorithm_r[a][t], algorithm_steps[a][
                         t], record, actions_by_model_count, good_actions_by_model_count, episode_stage = agent.learn(
                         max_episodes, initial_epsilon_index=0, step_name=Step.RL)
+
+                # Save the models
+                model_path = f"runs/{experiment_sub_folder_name}/{alg_name}.cleanrl_model"
+                torch.save(agent.q_network.state_dict(), model_path)
+                print(f"model saved to {model_path}")
+                # from cleanrl_utils.evals.dqn_eval import evaluate
+                #
+                # episodic_returns = evaluate(
+                #     model_path,
+                #     make_env,
+                #     args.env_id,
+                #     eval_episodes=10,
+                #     run_name=f"{run_name}-eval",
+                #     Model=QNetwork,
+                #     device=device,
+                #     epsilon=0.05,
+                # )
+                # for idx, episodic_return in enumerate(episodic_returns):
+                #     writer.add_scalar("eval/episodic_return", episodic_return, idx)
+
+                # if args.upload_model:
+                #     from cleanrl_utils.huggingface import push_to_hub
+                #
+                #     repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
+                #     repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
+                #     push_to_hub(args, episodic_returns, repo_id, "DQN", f"runs/{run_name}", f"videos/{run_name}-eval")
+
+                agent.envs.close()
+                writer.close()
 
             print()
 
@@ -891,7 +977,7 @@ if __name__ == '__main__':
             algorithm_steps_std[a] = np.std(algorithm_steps[a], axis=0)
 
         util.plot_rl_results(algorithm_names, algorithm_r_mean, algorithm_steps_mean, algorithm_r_std, algorithm_steps_std,
-                             results_folder + "/" + experiment_folder_name + "/average/" + rl_result_folder, epsilon_start,
+                             results_folder + "/" + experiment_folder_name + "/average/" + rl_result_folder, start_e,
                              evaluation_metric, epsilon_values, None,
                              0)  # At this point the data is already smoothed so we dont need to smooth again
 

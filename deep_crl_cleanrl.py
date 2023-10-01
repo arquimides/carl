@@ -575,7 +575,7 @@ class DeepCRL:
                         # Skip the envs that are not done
                         if "episode" not in info:
                             continue
-                        print(f"global_episode={self.global_step}, episodic_return={info['episode']['r']}")
+                        # print(f"global_episode={self.global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], self.global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], self.global_step)
                         writer.add_scalar("charts/epsilon", epsilon_values[initial_epsilon_index + episode], self.global_step)
@@ -617,7 +617,7 @@ class DeepCRL:
                         if self.global_step % 100 == 0:
                             writer.add_scalar("losses/td_loss", loss, self.global_step)
                             writer.add_scalar("losses/q_values", old_val.mean().item(), self.global_step)
-                            print("SPS:", int(self.global_step / (time.time() - start_time)))
+                            # print("SPS:", int(self.global_step / (time.time() - start_time)))
                             writer.add_scalar("charts/SPS", int(self.global_step / (time.time() - start_time)), self.global_step)
 
                         # optimize the model
@@ -792,7 +792,7 @@ if __name__ == '__main__':
         # A folder to store the Ground Truth models
         ground_truth_models_folder = "ground_truth_models/" + environment_name
         # Calling the R function to plot and save the Ground Truth Models
-        plot_gt_funtion_r(env.spec.name, environment_type, ground_truth_models_folder)
+        # plot_gt_funtion_r(env.spec.name, environment_type, ground_truth_models_folder)
 
         # Initializing experiment related params
         experiment_name = experiment_conf.exp_name

@@ -1,6 +1,6 @@
-# causal_rl
+# Causality Aware Reinforcement Learning (CARL)
 
-This is the code repository to run the experiments for the under-review article "Carl: A Synergistic Framework for Causal Reinforcement Learning". 
+This is the code repository to run the experiments for the under-review article "CARL: A Synergistic Framework for Causal Reinforcement Learning". 
 
 <!-- You can download the paper [here](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4409869) at SSRN.
  ## Citation
@@ -9,12 +9,45 @@ This is the code repository to run the experiments for the under-review article 
 
 ## Installation
 
-1. Clone this repository to your workspace.
+1. Clone this repository to your local workspace.
+```
+git clone https://github.com/arquimides/carl.git
+```
+
 2. The project uses Python and R, so you need to install them.
-3. We recommend you to create a python virtual environment. Once created and activated, install the dependencies using the following command:
-  ```
-  pip install -r requirements.txt
-  ```
+    
+    2.1 For Python we recommend to use Anaconda or similar package manager to manage the project dependencies in an isolated environment. To install Anaconda you can follow these steps:
+    
+    2.1.1 First download the latest Anaconda distribution for your operating system (Example, for Linux):
+    ```
+    wget https://repo.anaconda.com/archive/Anaconda3-2023.09-0-Linux-x86_64.sh
+    ```
+    2.1.2 Install Anaconda running the following command. Replace Anaconda3-2023.09-0-Linux-x86_64.sh with the actual filename of the installer you downloaded. Follow the prompts to complete the installation.
+    ```
+    bash Anaconda3-2023.09-0-Linux-x86_64.sh
+    ```
+    2.1.3 After the installation is complete, you may need to initialize Conda. You can do this by closing and reopening your terminal, or by running: 
+    ```
+    source ~/.bashrc
+    ```
+    2.1.4 Create a conda environment for this project. We test with python 3.10. Example:
+    ```
+    conda create --name carl_env python=3.10
+    ```
+    2.1.5 Finally active the conda environment to be ready to install all the dependencies later
+    ```
+    conda activate carl_env
+    ```
+    
+    2.2 For R we recommend to install the latest version from CRAN. To do that follow the instructions at https://cran.r-project.org/bin/linux/ubuntu/fullREADME.html#installation
+    
+3. Install Python project dependencies install the dependencies using the following command:
+```
+pip install -r requirements-cleanrl-requirements.txt
+``` 
+```
+pip install -r requirements.txt
+```
 4. Install the required R libs (bnlearn and Rgraphviz): Execute the following commands in R console.
 
 ```

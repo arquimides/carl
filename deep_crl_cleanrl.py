@@ -111,9 +111,16 @@ class DeepCRL:
         np.random.seed(self.seed_value)
         torch.manual_seed(self.seed_value)
         torch.backends.cudnn.deterministic = True
-        cuda = True
+        
+        cuda = True and torch.cuda.is_available()
+        num_gpus = torch.cuda.device_count()
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() and cuda else "cpu")
+        device_name = "cpu"
+        if cuda and num_gpus == 1:
+            device_name = "cuda:0"
+        elif cuda and num_gpus == 2:
+            device_name = "cuda:1"
+        self.device = torch.device(device_name)
 
         # env setup
         self.envs = gym.vector.SyncVectorEnv(
@@ -149,8 +156,8 @@ class DeepCRL:
 
             env = gym.wrappers.RecordEpisodeStatistics(env)
             # if render_mode == "rgb_array":
-            env = gym.wrappers.ResizeObservation(env, (84, 84))
-            env = gym.wrappers.GrayScaleObservation(env)
+            #env = gym.wrappers.ResizeObservation(env, (84, 84))
+            #env = gym.wrappers.GrayScaleObservation(env)
             env = gym.wrappers.FrameStack(env, 4)
             env.action_space.seed(self.seed_value)
 
@@ -444,6 +451,7 @@ class DeepCRL:
                             # Then, use the same epsilon-greedy policy to select among the filtered actions_indexes
                             if random.random() < epsilon_values[initial_epsilon_index + episode]:  # Explore
                                 a = np.random.choice(action_indexes)
+                                actions = np.array([a])
                                 # a = self.actions.index(np.random.choice(self.actions))
                                 # a = np.random.choice(np.intersect1d(np.where(self.q[s] == np.max(self.q[s, action_indexes]))[0],action_indexes))
                             else:  # Exploit selecting the best action according Q
@@ -500,9 +508,11 @@ class DeepCRL:
 
                             if candidates_actions[0].size > 0:
                                 a = np.random.choice(np.where(action_count[state_index] == np.min(action_count[state_index]))[0])
+                                actions = np.array([a])
                                 # a = np.random.choice(candidates_actions[0])
                             else:
                                 a = self.actions.index(np.random.choice(self.actions))
+                                actions = np.array([a])
 
                             # a = np.random.choice(np.where(action_count[state_index] == np.min(action_count[state_index]))[0])
                             # candidates_actions = np.where(self.action_count[rl_index] < min_frequency)
@@ -561,10 +571,10 @@ class DeepCRL:
 
                 # Take action, observe outcome
                 #observation, reward, terminated, truncated, info = self.env.step(a)
-                try:
-                    next_obs, rewards, terminated, truncated, infos = self.envs.step(actions)
-                except:
-                    next_obs, rewards, terminated, truncated, infos = self.envs.step(np.array([a]))
+                #try:
+                next_obs, rewards, terminated, truncated, infos = self.envs.step(actions)
+                #except:
+                #    next_obs, rewards, terminated, truncated, infos = self.envs.step(np.array([a]))
 
                 done = terminated[0] or truncated[0]
                 self.global_step = self.global_step + 1
@@ -585,10 +595,10 @@ class DeepCRL:
                 for idx, d in enumerate(truncated):
                     if d:
                         real_next_obs[idx] = infos["final_observation"][idx]
-                try:
-                    self.rb.add(obs, real_next_obs, actions, rewards, terminated, infos)
-                except:
-                    self.rb.add(obs, real_next_obs, np.array([a]), rewards, terminated, infos)
+                #try:
+                self.rb.add(obs, real_next_obs, actions, rewards, terminated, infos)
+                #except:
+                #    self.rb.add(obs, real_next_obs, np.array([a]), rewards, terminated, infos)
 
                 # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
                 obs = next_obs
@@ -617,7 +627,7 @@ class DeepCRL:
                         if self.global_step % 100 == 0:
                             writer.add_scalar("losses/td_loss", loss, self.global_step)
                             writer.add_scalar("losses/q_values", old_val.mean().item(), self.global_step)
-                            # print("SPS:", int(self.global_step / (time.time() - start_time)))
+                            #print("SPS:", int(self.global_step / (time.time() - start_time)))
                             writer.add_scalar("charts/SPS", int(self.global_step / (time.time() - start_time)), self.global_step)
 
                         # optimize the model
@@ -827,7 +837,7 @@ if __name__ == '__main__':
             print("\nStarting Trial: " + str(t + 1))
             experiment_sub_folder_name = experiment_folder_name + "/trial " + str(t + 1)
 
-            writer = SummaryWriter(f"runs/{experiment_sub_folder_name}")
+            writer = SummaryWriter(f"{results_folder}/{experiment_sub_folder_name}/tensorboard_run_info/")
 
             alg_doing_cd_name = []  # to store the name of the algorithms doing CD
             alg_shd_distances = []
@@ -917,9 +927,9 @@ if __name__ == '__main__':
                         max_episodes, initial_epsilon_index=0, step_name=Step.RL)
 
                 # Save the models
-                model_path = f"runs/{experiment_sub_folder_name}/{alg_name}.cleanrl_model"
+                model_path = f"{results_folder}/{experiment_sub_folder_name}/tensorboard_run_info/{alg_name}.cleanrl_model"
                 torch.save(agent.q_network.state_dict(), model_path)
-                print(f"model saved to {model_path}")
+                # print(f"model saved to {model_path}")
                 # from cleanrl_utils.evals.dqn_eval import evaluate
                 #
                 # episodic_returns = evaluate(
@@ -934,13 +944,6 @@ if __name__ == '__main__':
                 # )
                 # for idx, episodic_return in enumerate(episodic_returns):
                 #     writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-                # if args.upload_model:
-                #     from cleanrl_utils.huggingface import push_to_hub
-                #
-                #     repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-                #     repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-                #     push_to_hub(args, episodic_returns, repo_id, "DQN", f"runs/{run_name}", f"videos/{run_name}-eval")
 
                 agent.envs.close()
                 writer.close()

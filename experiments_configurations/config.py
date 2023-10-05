@@ -1204,7 +1204,7 @@ cp = {"max_episodes": 15000, "max_steps": 1000,
       "screen_width": 84, "screen_height": 84,
       "learning_rate": 1e-4, "buffer_size": 500000, "gamma": 0.99, "target_network_update_rate": 1.,
       "target_network_update_frequency": 10000, "batch_size": 32, "start_e": 1.0, "end_e": 0.01,
-      "exploration_fraction": 0.70, "learning_start": 0, "train_frequency": 4,
+      "exploration_fraction": 0.70, "learning_start": 0, "train_frequency": 16,
       "episode_state_initialization": EpisodeStateInitialization.EPISODE_NUMBER,
       "T": 1000, "th": 0.7, "min_frequency": 30}
 
@@ -1264,12 +1264,12 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
                                   train_frequency=cp["train_frequency"],
                                   episode_state_initialization=cp["episode_state_initialization"],
                                   T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
-                                  model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
+                                  model_use_strategy=ModelUseStrategy.IMMEDIATE_POSITIVE,
                                   model_discovery_strategy=ModelDiscoveryStrategy.EPSILON_GREEDY,
                                   crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
                                   use_crl_data=True, model_init_path=None)
 
-    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 10,
+    experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 100,
                          EvaluationMetric.EPISODE_REWARD, cp["max_episodes"], cp["max_steps"], ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf_1, carl_dqn_conf_2, pgm_dqn_conf])
 
     exp_deep_rl_1.append(experiment)

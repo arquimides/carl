@@ -1249,40 +1249,50 @@ for env_type in EnvironmentType:
 #############################################################
 
 TRIALS = 1
-cp = {"max_episodes": 15000, "max_steps": 1000,
+# Common parameters for DQN in deterministic environment
+cp_1 = {"max_episodes": 15000, "max_steps": 1000,
       "screen_width": 84, "screen_height": 84,
-      "n_atoms": 51, "v_min": -10, "v_max": 20,
-      "learning_rate_dqn": 1e-4, "learning_rate_c51": 2.5e-4, "buffer_size": 500000, "gamma": 0.99, "target_network_update_rate": 1.,
-      "target_network_update_frequency_dqn": 1000, "target_network_update_frequency_c51": 10000, "batch_size": 32, "start_e": 1.0, "end_e": 0.01,
+      "learning_rate": 1e-4, "buffer_size": 500000, "gamma": 0.99, "target_network_update_rate": 1.,
+      "target_network_update_frequency": 1000, "batch_size": 32, "start_e": 1.0, "end_e": 0.01,
       "exploration_fraction": 0.10, "learning_start": 0, "train_frequency": 4,
       "episode_state_initialization": EpisodeStateInitialization.EPISODE_NUMBER,
       "T": 1000, "th": 0.7, "min_frequency": 30}
+
+# Common parameters for C51 in stochastic environment
+cp_2 = {"max_episodes": 30000, "max_steps": 1000,
+      "screen_width": 84, "screen_height": 84,
+      "n_atoms": 51, "v_min": -10, "v_max": 20,
+      "learning_rate": 2.5e-4, "buffer_size": 500000, "gamma": 0.99,
+      "target_network_update_frequency": 10000, "batch_size": 32, "start_e": 1.0, "end_e": 0.01,
+      "exploration_fraction": 0.10, "learning_start": 0, "train_frequency": 4,
+      "episode_state_initialization": EpisodeStateInitialization.EPISODE_NUMBER,
+      "T": 10, "th": 0.7, "min_frequency": 30}
 
 exp_deep_rl_1 = []
 
 for env_type in [EnvironmentType.DETERMINISTIC]:
     # Here we use the combination strategy RL for all episodes, algorithm param is 'dqn'
     dqn_conf = DQNConf("DQN", combination_strategy=combination_strategy_7, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                       screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                       learning_rate=cp["learning_rate_dqn"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                       target_network_update_rate=cp["target_network_update_rate"],
-                       target_network_update_frequency=cp["target_network_update_frequency_dqn"],
-                       batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                       exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                       train_frequency=cp["train_frequency"],
-                       episode_state_initialization=cp["episode_state_initialization"])
+                       screen_width=cp_1["screen_width"], screen_height=cp_1["screen_height"],
+                       learning_rate=cp_1["learning_rate"], buffer_size=cp_1["buffer_size"], gamma=cp_1["gamma"],
+                       target_network_update_rate=cp_1["target_network_update_rate"],
+                       target_network_update_frequency=cp_1["target_network_update_frequency"],
+                       batch_size=cp_1["batch_size"], start_e=cp_1["start_e"], end_e=cp_1["end_e"],
+                       exploration_fraction=cp_1["exploration_fraction"], learning_start=cp_1["learning_start"],
+                       train_frequency=cp_1["train_frequency"],
+                       episode_state_initialization=cp_1["episode_state_initialization"])
 
     # Here we use the combination strategy 'Discover once, use forever'
     carl_dqn_conf_1 = CARLDQNConf("CARL-DQN-C2", combination_strategy=combination_strategy_8, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                                  screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                                  learning_rate=cp["learning_rate_dqn"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                                  target_network_update_rate=cp["target_network_update_rate"],
-                                  target_network_update_frequency=cp["target_network_update_frequency_dqn"],
-                                  batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                                  exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                                  train_frequency=cp["train_frequency"],
-                                  episode_state_initialization=cp["episode_state_initialization"],
-                                  T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                                  screen_width=cp_1["screen_width"], screen_height=cp_1["screen_height"],
+                                  learning_rate=cp_1["learning_rate"], buffer_size=cp_1["buffer_size"], gamma=cp_1["gamma"],
+                                  target_network_update_rate=cp_1["target_network_update_rate"],
+                                  target_network_update_frequency=cp_1["target_network_update_frequency"],
+                                  batch_size=cp_1["batch_size"], start_e=cp_1["start_e"], end_e=cp_1["end_e"],
+                                  exploration_fraction=cp_1["exploration_fraction"], learning_start=cp_1["learning_start"],
+                                  train_frequency=cp_1["train_frequency"],
+                                  episode_state_initialization=cp_1["episode_state_initialization"],
+                                  T=cp_1["T"], th=cp_1["th"], min_frequency=cp_1["min_frequency"],
                                   model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                                   model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                                   crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
@@ -1290,15 +1300,15 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
 
     # Here we use the combination strategy 'RLforCD - CD - RLusingCD repeat'
     carl_dqn_conf_2 = CARLDQNConf("CARL-DQN-C1", combination_strategy=combination_strategy_1, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                                  screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                                  learning_rate=cp["learning_rate_dqn"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                                  target_network_update_rate=cp["target_network_update_rate"],
-                                  target_network_update_frequency=cp["target_network_update_frequency_dqn"],
-                                  batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                                  exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                                  train_frequency=cp["train_frequency"],
-                                  episode_state_initialization=cp["episode_state_initialization"],
-                                  T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                                  screen_width=cp_1["screen_width"], screen_height=cp_1["screen_height"],
+                                  learning_rate=cp_1["learning_rate"], buffer_size=cp_1["buffer_size"], gamma=cp_1["gamma"],
+                                  target_network_update_rate=cp_1["target_network_update_rate"],
+                                  target_network_update_frequency=cp_1["target_network_update_frequency"],
+                                  batch_size=cp_1["batch_size"], start_e=cp_1["start_e"], end_e=cp_1["end_e"],
+                                  exploration_fraction=cp_1["exploration_fraction"], learning_start=cp_1["learning_start"],
+                                  train_frequency=cp_1["train_frequency"],
+                                  episode_state_initialization=cp_1["episode_state_initialization"],
+                                  T=cp_1["T"], th=cp_1["th"], min_frequency=cp_1["min_frequency"],
                                   model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                                   model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                                   crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
@@ -1307,22 +1317,22 @@ for env_type in [EnvironmentType.DETERMINISTIC]:
     # Here we use the combination strategy presented at PGM2022 'RL - CD - RLusingCD repeat'
     pgm_dqn_conf = CARLDQNConf("PGM-DQN-C0", combination_strategy=combination_strategy_0,
                                rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                               screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                               learning_rate=cp["learning_rate_dqn"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                               target_network_update_rate=cp["target_network_update_rate"],
-                               target_network_update_frequency=cp["target_network_update_frequency_dqn"],
-                               batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                               exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                               train_frequency=cp["train_frequency"],
-                               episode_state_initialization=cp["episode_state_initialization"],
-                               T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                               screen_width=cp_1["screen_width"], screen_height=cp_1["screen_height"],
+                               learning_rate=cp_1["learning_rate"], buffer_size=cp_1["buffer_size"], gamma=cp_1["gamma"],
+                               target_network_update_rate=cp_1["target_network_update_rate"],
+                               target_network_update_frequency=cp_1["target_network_update_frequency"],
+                               batch_size=cp_1["batch_size"], start_e=cp_1["start_e"], end_e=cp_1["end_e"],
+                               exploration_fraction=cp_1["exploration_fraction"], learning_start=cp_1["learning_start"],
+                               train_frequency=cp_1["train_frequency"],
+                               episode_state_initialization=cp_1["episode_state_initialization"],
+                               T=cp_1["T"], th=cp_1["th"], min_frequency=cp_1["min_frequency"],
                                model_use_strategy=ModelUseStrategy.IMMEDIATE_POSITIVE,
                                model_discovery_strategy=ModelDiscoveryStrategy.EPSILON_GREEDY,
                                crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
                                use_crl_data=True, model_init_path=None)
 
     experiment = ExpConf("DQN vs CARL-DQN", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 100,
-                         EvaluationMetric.EPISODE_REWARD, cp["max_episodes"], cp["max_steps"], ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf_1, carl_dqn_conf_2, pgm_dqn_conf])
+                         EvaluationMetric.EPISODE_REWARD, cp_1["max_episodes"], cp_1["max_steps"], ActionCountStrategy.Relational, True, [dqn_conf, carl_dqn_conf_1, carl_dqn_conf_2, pgm_dqn_conf])
 
     exp_deep_rl_1.append(experiment)
 
@@ -1332,26 +1342,26 @@ exp_deep_rl_2 = []
 for env_type in [EnvironmentType.STOCHASTIC]:
     # Here we use the combination strategy RL for all episodes, algorithm param is 'dqn'
     c51_conf = C51Conf("C51", combination_strategy=combination_strategy_7, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                       screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                       n_atoms=cp["n_atoms"], v_min=cp["v_min"], v_max=cp["v_max"],
-                       learning_rate=cp["learning_rate_c51"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                       target_network_update_frequency=cp["target_network_update_frequency_c51"],
-                       batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                       exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                       train_frequency=cp["train_frequency"],
-                       episode_state_initialization=cp["episode_state_initialization"])
+                       screen_width=cp_2["screen_width"], screen_height=cp_2["screen_height"],
+                       n_atoms=cp_2["n_atoms"], v_min=cp_2["v_min"], v_max=cp_2["v_max"],
+                       learning_rate=cp_2["learning_rate"], buffer_size=cp_2["buffer_size"], gamma=cp_2["gamma"],
+                       target_network_update_frequency=cp_2["target_network_update_frequency"],
+                       batch_size=cp_2["batch_size"], start_e=cp_2["start_e"], end_e=cp_2["end_e"],
+                       exploration_fraction=cp_2["exploration_fraction"], learning_start=cp_2["learning_start"],
+                       train_frequency=cp_2["train_frequency"],
+                       episode_state_initialization=cp_2["episode_state_initialization"])
 
     # Here we use the combination strategy 'Discover once, use forever'
     carl_c51_conf_1 = CARLC51Conf("CARL-C51-C2", combination_strategy=combination_strategy_8, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                                  screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                                  n_atoms=cp["n_atoms"], v_min=cp["v_min"], v_max=cp["v_max"],
-                                  learning_rate=cp["learning_rate_c51"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                                  target_network_update_frequency=cp["target_network_update_frequency_c51"],
-                                  batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                                  exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                                  train_frequency=cp["train_frequency"],
-                                  episode_state_initialization=cp["episode_state_initialization"],
-                                  T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                                  screen_width=cp_2["screen_width"], screen_height=cp_2["screen_height"],
+                                  n_atoms=cp_2["n_atoms"], v_min=cp_2["v_min"], v_max=cp_2["v_max"],
+                                  learning_rate=cp_2["learning_rate"], buffer_size=cp_2["buffer_size"], gamma=cp_2["gamma"],
+                                  target_network_update_frequency=cp_2["target_network_update_frequency"],
+                                  batch_size=cp_2["batch_size"], start_e=cp_2["start_e"], end_e=cp_2["end_e"],
+                                  exploration_fraction=cp_2["exploration_fraction"], learning_start=cp_2["learning_start"],
+                                  train_frequency=cp_2["train_frequency"],
+                                  episode_state_initialization=cp_2["episode_state_initialization"],
+                                  T=cp_2["T"], th=cp_2["th"], min_frequency=cp_2["min_frequency"],
                                   model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                                   model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                                   crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
@@ -1359,15 +1369,15 @@ for env_type in [EnvironmentType.STOCHASTIC]:
 
     # Here we use the combination strategy 'RLforCD - CD - RLusingCD repeat'
     carl_c51_conf_2 = CARLC51Conf("CARL-C51-C1", combination_strategy=combination_strategy_1, rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                                  screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                                  n_atoms=cp["n_atoms"], v_min=cp["v_min"], v_max=cp["v_max"],
-                                  learning_rate=cp["learning_rate_c51"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                                  target_network_update_frequency=cp["target_network_update_frequency_c51"],
-                                  batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                                  exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                                  train_frequency=cp["train_frequency"],
-                                  episode_state_initialization=cp["episode_state_initialization"],
-                                  T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                                  screen_width=cp_2["screen_width"], screen_height=cp_2["screen_height"],
+                                  n_atoms=cp_2["n_atoms"], v_min=cp_2["v_min"], v_max=cp_2["v_max"],
+                                  learning_rate=cp_2["learning_rate"], buffer_size=cp_2["buffer_size"], gamma=cp_2["gamma"],
+                                  target_network_update_frequency=cp_2["target_network_update_frequency"],
+                                  batch_size=cp_2["batch_size"], start_e=cp_2["start_e"], end_e=cp_2["end_e"],
+                                  exploration_fraction=cp_2["exploration_fraction"], learning_start=cp_2["learning_start"],
+                                  train_frequency=cp_2["train_frequency"],
+                                  episode_state_initialization=cp_2["episode_state_initialization"],
+                                  T=cp_2["T"], th=cp_2["th"], min_frequency=cp_2["min_frequency"],
                                   model_use_strategy=ModelUseStrategy.POSITIVE_OR_NOT_NEGATIVE,
                                   model_discovery_strategy=ModelDiscoveryStrategy.LESS_SELECTED_ACTION_EPSILON_GREEDY,
                                   crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
@@ -1376,21 +1386,21 @@ for env_type in [EnvironmentType.STOCHASTIC]:
     # Here we use the combination strategy presented at PGM2022 'RL - CD - RLusingCD repeat'
     pgm_c51_conf = CARLC51Conf("PGM-C51-C0", combination_strategy=combination_strategy_0,
                                rl_action_selection_strategy=ActionSelectionStrategy.EPSILON_GREEDY,
-                               screen_width=cp["screen_width"], screen_height=cp["screen_height"],
-                               n_atoms=cp["n_atoms"], v_min=cp["v_min"], v_max=cp["v_max"],
-                               learning_rate=cp["learning_rate_c51"], buffer_size=cp["buffer_size"], gamma=cp["gamma"],
-                               target_network_update_frequency=cp["target_network_update_frequency_c51"],
-                               batch_size=cp["batch_size"], start_e=cp["start_e"], end_e=cp["end_e"],
-                               exploration_fraction=cp["exploration_fraction"], learning_start=cp["learning_start"],
-                               train_frequency=cp["train_frequency"],
-                               episode_state_initialization=cp["episode_state_initialization"],
-                               T=cp["T"], th=cp["th"], min_frequency=cp["min_frequency"],
+                               screen_width=cp_2["screen_width"], screen_height=cp_2["screen_height"],
+                               n_atoms=cp_2["n_atoms"], v_min=cp_2["v_min"], v_max=cp_2["v_max"],
+                               learning_rate=cp_2["learning_rate"], buffer_size=cp_2["buffer_size"], gamma=cp_2["gamma"],
+                               target_network_update_frequency=cp_2["target_network_update_frequency"],
+                               batch_size=cp_2["batch_size"], start_e=cp_2["start_e"], end_e=cp_2["end_e"],
+                               exploration_fraction=cp_2["exploration_fraction"], learning_start=cp_2["learning_start"],
+                               train_frequency=cp_2["train_frequency"],
+                               episode_state_initialization=cp_2["episode_state_initialization"],
+                               T=cp_2["T"], th=cp_2["th"], min_frequency=cp_2["min_frequency"],
                                model_use_strategy=ModelUseStrategy.IMMEDIATE_POSITIVE,
                                model_discovery_strategy=ModelDiscoveryStrategy.EPSILON_GREEDY,
                                crl_action_selection_strategy=ActionSelectionStrategy.MODEL_BASED_EPSILON_GREEDY,
                                use_crl_data=True, model_init_path=None)
 
     experiment = ExpConf("C51 vs CARL-C51", EnvironmentNames.TAXI_ATARI_SMALL, env_type, TRIALS, 100,
-                         EvaluationMetric.EPISODE_REWARD, cp["max_episodes"], cp["max_steps"], ActionCountStrategy.Relational, True, [c51_conf, carl_c51_conf_1, carl_c51_conf_2, pgm_c51_conf])
+                         EvaluationMetric.EPISODE_REWARD, cp_2["max_episodes"], cp_2["max_steps"], ActionCountStrategy.Relational, True, [ c51_conf, carl_c51_conf_1, carl_c51_conf_2, pgm_c51_conf])
 
     exp_deep_rl_2.append(experiment)

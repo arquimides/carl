@@ -9,7 +9,7 @@ import sys
 from experiments_configurations import config
 from experiments_configurations.config import EvaluationMetric, EpisodeStateInitialization, Times, \
     Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy, \
-    EnvironmentType, DeepCRLConf, DeepRLConf
+    EnvironmentType, CARLDQNConf, DQNConf
 
 # Configuring the rpy2 stuff for R communication
 r = ro.r  # Creating the R instance
@@ -65,7 +65,7 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
     return max(slope * t + start_e, end_e)
 
 
-class DeepCRL:
+class DQNCRL:
     def __init__(self, env, num_envs, screen_width, screen_height, learning_rate,
                  buffer_size, gamma, target_network_update_rate,
                  target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
@@ -875,7 +875,7 @@ if __name__ == '__main__':
 
 
                 # Parameters for Causal-RL
-                if isinstance(algorithm, DeepCRLConf):
+                if isinstance(algorithm, CARLDQNConf):
                     # Episodes to change between RL for CD and RL using CD
                     T = algorithm.T
                     # Causal Discovery Threshold
@@ -899,12 +899,12 @@ if __name__ == '__main__':
                 print("\nStarting algorithm {}. {}".format(a+1, alg_name))
 
                 # Initializing the agent
-                agent = DeepCRL(env, 1, screen_width, screen_height, learning_rate, buffer_size, gamma,
-                                target_network_update_rate, target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
-                                learning_start, train_frequency)
+                agent = DQNCRL(env, 1, screen_width, screen_height, learning_rate, buffer_size, gamma,
+                               target_network_update_rate, target_network_update_frequency, batch_size, start_e, end_e, exploration_fraction,
+                               learning_start, train_frequency)
 
                 # Check if algorithm is CRL first because CRL extend RL
-                if isinstance(algorithm, DeepCRLConf):
+                if isinstance(algorithm, CARLDQNConf):
                     # Do Deep Reinforcement Learning with CARL
                     start_time = time.time()
                     algorithm_r[a][t], algorithm_steps[a][

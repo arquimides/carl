@@ -9,7 +9,7 @@ import sys
 from experiments_configurations import config
 from experiments_configurations.config import EvaluationMetric, EpisodeStateInitialization, Times, \
     Step, ActionSelectionStrategy, ModelUseStrategy, ModelDiscoveryStrategy, CRLConf, ActionCountStrategy, \
-    EnvironmentType, DeepCRLConf, DeepRLConf
+    EnvironmentType, CARLDQNConf, DQNConf
 
 # Configuring the rpy2 stuff for R communication
 r = ro.r  # Creating the R instance
@@ -1042,7 +1042,7 @@ if __name__ == '__main__':
                 debug = algorithm.debug  # Flag specifying whether the script runs in debug mode
 
                 # Parameters for Causal-RL
-                if isinstance(algorithm, DeepCRLConf):
+                if isinstance(algorithm, CARLDQNConf):
                     # Episodes to change between RL for CD and RL using CD
                     T = algorithm.T
                     # Causal Discovery Threshold
@@ -1073,7 +1073,7 @@ if __name__ == '__main__':
                 print("\nStarting algorithm {}. {}".format(a+1, alg_name))
 
                 # Check if algorithm is CRL first because CRL extend RL
-                if isinstance(algorithm, DeepCRLConf):
+                if isinstance(algorithm, CARLDQNConf):
                     # Do Deep Reinforcement Learning with CARL
                     agent = DeepCRL(env,screen_width, screen_height, initial_replay_size, max_replay_size, prioritized, optimizer,
                                         learning_rate, decay, epsilon, algorithm_name, n_approximators, batch_size, history_length,

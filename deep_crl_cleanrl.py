@@ -107,8 +107,8 @@ class DQNCRL:
         # TRY NOT TO MODIFY: seeding
         self.seed_value = 1
         self.capture_video = False
-        random.seed(self.seed_value)
-        np.random.seed(self.seed_value)
+        # random.seed(self.seed_value)
+        # np.random.seed(self.seed_value)
         torch.manual_seed(self.seed_value)
         torch.backends.cudnn.deterministic = True
         
@@ -155,9 +155,9 @@ class DQNCRL:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
 
             env = gym.wrappers.RecordEpisodeStatistics(env)
-            # if render_mode == "rgb_array":
-            #env = gym.wrappers.ResizeObservation(env, (84, 84))
-            #env = gym.wrappers.GrayScaleObservation(env)
+            if env.render_mode in ["rgb_array", "preloaded_color"]:
+                env = gym.wrappers.ResizeObservation(env, (84, 84))
+                env = gym.wrappers.GrayScaleObservation(env)
             env = gym.wrappers.FrameStack(env, 4)
             env.action_space.seed(self.seed_value)
 
@@ -791,7 +791,7 @@ if __name__ == '__main__':
         reward_type = "original" if environment_type == EnvironmentType.DETERMINISTIC.value else "new"
 
         # Environment Initialization
-        env = gym.make(environment_name, render_mode = "preprocessed", env_type = environment_type, reward_type = reward_type, render_fps=64)
+        env = gym.make(environment_name, render_mode = "preloaded_color", env_type = environment_type, reward_type = reward_type, render_fps=64)
 
         # Params for the experiment output related folder and names
         results_folder = "Deep RL experiments"

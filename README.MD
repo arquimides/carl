@@ -1,6 +1,6 @@
 # Causality Aware Reinforcement Learning (CARL)
 
-This is the code repository to run the experiments for the under-review article "CARL: A Synergistic Framework for Causal Reinforcement Learning". 
+This is the code repository to run the experiments reported in the paper "CARL: A Synergistic Framework for Causal Reinforcement Learning". 
 
 <!-- You can download the paper [here](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4409869) at SSRN.
  ## Citation
